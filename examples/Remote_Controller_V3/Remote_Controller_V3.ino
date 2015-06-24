@@ -56,7 +56,7 @@ void setup() {
 }
 
 void loop() {
-  unsigned long time = millis();
+  unsigned long lastReceivedTime = millis();
   /**********************************************************************************************************/
   axis_x.axis_1 = analogRead(A0);
   axis_x.axis_2 = analogRead(A1);
@@ -69,159 +69,159 @@ void loop() {
   }
   /**********************************************************************************************************/
   while (!Mirf.dataReady()) {
-    if ( ( millis() - time ) > 2000) {
-      lcd.setCursor(0,0);
+    if ( ( millis() - lastReceivedTime ) > 2000) {
+      lcd.setCursor(0, 0);
       lcd.print("   Waiting...   ");
-      lcd.setCursor(0,1);
+      lcd.setCursor(0, 1);
       lcd.print("                ");
       return;
-      }
     }
-    Mirf.getData((byte *) &data);
-    /**********************************************************************************************************/
-    digitalWrite(2, HIGH);
-    while (digitalRead(2) == LOW) {
-      Button_Delay++;
-      delay(1);
-    }
+  }
+  Mirf.getData((byte *) &data);
+  /**********************************************************************************************************/
+  digitalWrite(2, HIGH);
+  while (digitalRead(2) == LOW) {
+    Button_Delay++;
+    delay(1);
+  }
 
-    if (Button_Delay > 10) {
-      lcd.clear();
-      Display_Counter++;
-    }
-    Button_Delay = 0;
+  if (Button_Delay > 10) {
+    lcd.clear();
+    Display_Counter++;
+  }
+  Button_Delay = 0;
 
-    while (digitalRead(2) == LOW) {
-      delay(1);
-    }
+  while (digitalRead(2) == LOW) {
+    delay(1);
+  }
 
-    if (Display_Counter & 1) {
-      PID_Display();
-    }
-    else {
-      Gesture_Display();
-    }
-    /**********************************************************************************************************/
-    /*Serial.print("Ping:");
-    Serial.println((millis() - time));*/
+  if (Display_Counter & 1) {
+    PID_Display();
+  }
+  else {
+    Gesture_Display();
   }
   /**********************************************************************************************************/
-  void PID_Display()
-  {
-    lcd.setCursor(0, 0);
-    lcd.print("Parameter:P=");
-    if (data.P < 1000) {
+  /*Serial.print("Ping:");
+  Serial.println((millis() - lastReceivedTime));*/
+}
+/**********************************************************************************************************/
+void PID_Display()
+{
+  lcd.setCursor(0, 0);
+  lcd.print("Parameter:P=");
+  if (data.P < 1000) {
+    lcd.print('0');
+    if (data.P < 100) {
       lcd.print('0');
-      if (data.P < 100) {
+      if (data.P < 10) {
         lcd.print('0');
-        if (data.P < 10) {
-          lcd.print('0');
-        }
       }
     }
-    lcd.print(data.P);
-    /**********************************************************************************************************/
-    lcd.setCursor(0, 1);
-    lcd.print(" I=");
-    if (data.I < 1000) {
+  }
+  lcd.print(data.P);
+  /**********************************************************************************************************/
+  lcd.setCursor(0, 1);
+  lcd.print(" I=");
+  if (data.I < 1000) {
+    lcd.print('0');
+    if (data.I < 100) {
       lcd.print('0');
-      if (data.I < 100) {
+      if (data.I < 10) {
         lcd.print('0');
-        if (data.I < 10) {
-          lcd.print('0');
-        }
       }
     }
-    lcd.print(data.I);
-    /**********************************************************************************************************/
-    lcd.print("  D=");
-    if (data.D < 1000) {
+  }
+  lcd.print(data.I);
+  /**********************************************************************************************************/
+  lcd.print("  D=");
+  if (data.D < 1000) {
+    lcd.print('0');
+    if (data.D < 100) {
       lcd.print('0');
-      if (data.D < 100) {
+      if (data.D < 10) {
         lcd.print('0');
-        if (data.D < 10) {
-          lcd.print('0');
-        }
       }
     }
-    lcd.print(data.D);
+  }
+  lcd.print(data.D);
+}
+/**********************************************************************************************************/
+void Gesture_Display()
+{
+  lcd.setCursor(0, 0);
+  lcd.print("Gesture:A=");
+  if (10 <= data.angle) {
+    lcd.print("+");
+    lcd.print(data.angle);
+  }
+  if (0 < data.angle && data.angle < 10) {
+    lcd.print("+0");
+    lcd.print(data.angle);
+  }
+  if (-10 < data.angle && data.angle < 0) {
+    data.angle = -data.angle;
+    lcd.print("-0");
+    lcd.print(data.angle);
+  }
+  if (data.angle <= -10) {
+    lcd.print(data.angle);
   }
   /**********************************************************************************************************/
-  void Gesture_Display()
-  {
-    lcd.setCursor(0, 0);
-    lcd.print("Gesture:A=");
-    if (10 <= data.angle) {
-      lcd.print("+");
-      lcd.print(data.angle);
-    }
-    if (0 < data.angle && data.angle < 10) {
-      lcd.print("+0");
-      lcd.print(data.angle);
-    }
-    if (-10 < data.angle && data.angle < 0) {
-      data.angle = -data.angle;
-      lcd.print("-0");
-      lcd.print(data.angle);
-    }
-    if (data.angle <= -10) {
-      lcd.print(data.angle);
-    }
-    /**********************************************************************************************************/
-    lcd.setCursor(0, 1);
-    lcd.print("O=");
-    if (100 <= data.omega) {
-      lcd.print("+");
-      lcd.print(data.omega);
-    }
-    if (10 <= data.omega && data.omega < 100) {
-      lcd.print("+0");
-      lcd.print(data.omega);
-    }
-    if (0 < data.omega && data.omega < 10) {
-      lcd.print("+00");
-      lcd.print(data.omega);
-    }
-    if (-10 < data.omega && data.omega <= 0) {
-      data.omega = -data.omega;
-      lcd.print("-00");
-      lcd.print(data.omega);
-    }
-    if (-100 < data.omega && data.omega <= -10) {
-      data.omega = -data.omega;
-      lcd.print("-0");
-      lcd.print(data.omega);
-    }
-    if (data.omega <= -100) {
-      lcd.print(data.omega);
-    }
-    /**********************************************************************************************************/
-    lcd.setCursor(9, 1);
-    lcd.print(" S=");
-    if (data.speed <= -100) {
-      lcd.print(data.speed);
-    }
-    if (-100 < data.speed && data.speed <= -10) {
-      data.speed = -data.speed;
-      lcd.print("-0");
-      lcd.print(data.speed);
-    }
-    if (-10 < data.speed && data.speed <= 0) {
-      data.speed = -data.speed;
-      lcd.print("-00");
-      lcd.print(data.speed);
-    }
-    if (0 < data.speed && data.speed < 10) {
-      lcd.print("+00");
-      lcd.print(data.speed);
-    }
-    if (10 <= data.speed && data.speed < 100) {
-      lcd.print("+0");
-      lcd.print(data.speed);
-    }
-    if (100 <= data.speed) {
-      lcd.print("+");
-      lcd.print(data.speed);
-    }
+  lcd.setCursor(0, 1);
+  lcd.print("O=");
+  if (100 <= data.omega) {
+    lcd.print("+");
+    lcd.print(data.omega);
   }
+  if (10 <= data.omega && data.omega < 100) {
+    lcd.print("+0");
+    lcd.print(data.omega);
+  }
+  if (0 < data.omega && data.omega < 10) {
+    lcd.print("+00");
+    lcd.print(data.omega);
+  }
+  if (-10 < data.omega && data.omega <= 0) {
+    data.omega = -data.omega;
+    lcd.print("-00");
+    lcd.print(data.omega);
+  }
+  if (-100 < data.omega && data.omega <= -10) {
+    data.omega = -data.omega;
+    lcd.print("-0");
+    lcd.print(data.omega);
+  }
+  if (data.omega <= -100) {
+    lcd.print(data.omega);
+  }
+  /**********************************************************************************************************/
+  lcd.setCursor(9, 1);
+  lcd.print(" S=");
+  if (data.speed <= -100) {
+    lcd.print(data.speed);
+  }
+  if (-100 < data.speed && data.speed <= -10) {
+    data.speed = -data.speed;
+    lcd.print("-0");
+    lcd.print(data.speed);
+  }
+  if (-10 < data.speed && data.speed <= 0) {
+    data.speed = -data.speed;
+    lcd.print("-00");
+    lcd.print(data.speed);
+  }
+  if (0 < data.speed && data.speed < 10) {
+    lcd.print("+00");
+    lcd.print(data.speed);
+  }
+  if (10 <= data.speed && data.speed < 100) {
+    lcd.print("+0");
+    lcd.print(data.speed);
+  }
+  if (100 <= data.speed) {
+    lcd.print("+");
+    lcd.print(data.speed);
+  }
+}
 
