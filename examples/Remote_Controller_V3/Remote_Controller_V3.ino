@@ -10,7 +10,10 @@
 #include <LiquidCrystal_I2C.h>
 LiquidCrystal_I2C lcd(0x27, 16, 2);
 
-unsigned int Display_Counter, Button_Delay = 0;
+
+
+uint16_t Display_Counter;
+uint16_t NUM_MODES = 4;
 
 struct Axis {
   uint16_t axis_1;
@@ -52,44 +55,44 @@ void setup() {
   Mirf.payload = 16;
   Mirf.config();
 
-  delay(2000);
-  Dummy_Display();
-  delay(2000);
+  delay(1500);
+  bradDisplay();
+  delay(1500);
 }
 
 void loop() {
   
   /**********************************************************************************************************/
   sendData();
-  receiveData();
+  if (!receiveData()){
+    return;
+  };
   /**********************************************************************************************************/
-  digitalWrite(2, HIGH);
-  while (digitalRead(2) == LOW) {
-    Button_Delay++;
-    delay(1);
-  }
-
-  if (Button_Delay > 10) {
+  if (buttonPressed()){
     lcd.clear();
-    Display_Counter++;
+    Display_Counter = (Display_Counter + 1) % NUM_MODES;
+    modeDisplay(Display_Counter);
+    delay(300);
+    lcd.clear();
   }
-  Button_Delay = 0;
 
   while (digitalRead(2) == LOW) {
     delay(1);
   }
 
-  switch (Display_Counter % 3){
+  
+  switch (Display_Counter){
   case 2:
-    Dummy_Display();
+    bradDisplay();
     break;
   case 1:
     PID_Display();
     break;
   case 0:
-  default:
     Gesture_Display();
     break;
+  default:
+    modeDisplay(Display_Counter);
   }
    
   /**********************************************************************************************************/
@@ -102,6 +105,7 @@ void sendData(){
   axis_x.axis_2 = analogRead(A1);
   axis_x.axis_3 = analogRead(A2);
   axis_x.axis_4 = analogRead(A3);
+  axis_x.axis_8 = Display_Counter;
 
   Mirf.setTADDR((byte *)"serv1");
   Mirf.send((byte *)&axis_x);
@@ -109,7 +113,7 @@ void sendData(){
   }
 }
 
-void receiveData(){
+boolean receiveData(){
   unsigned long lastReceivedTime = millis();
   while (!Mirf.dataReady()) {
     if ((millis() - lastReceivedTime) > 2000) {
@@ -117,10 +121,23 @@ void receiveData(){
       lcd.print("   Waiting...   ");
       lcd.setCursor(0, 1);
       lcd.print("                ");
-      return;
+      return false;
     }
   }
   Mirf.getData((byte *)&data);
+  return true;
+}
+
+boolean buttonPressed(){
+  digitalWrite(2, HIGH);
+  int buttonDelay = 0;
+
+  while (digitalRead(2) == LOW) {
+    buttonDelay++;
+    delay(1);
+  }
+
+  return buttonDelay > 10;
 }
 
 
@@ -143,7 +160,6 @@ void PID_Display()
 /**********************************************************************************************************/
 void Gesture_Display()
 {
-  
   lcd.setCursor(0, 0);
   lcd.print("Gesture:A=");
   lcdPrintNumberFixedWidth(data.angle, 2, true);
@@ -157,11 +173,17 @@ void Gesture_Display()
   lcdPrintNumberFixedWidth(data.speed, 3, true);
 }
 
-void Dummy_Display(){
+void bradDisplay(){
   lcd.setCursor(0, 0);
   lcd.print("Modified by:    ");
   lcd.setCursor(0,1);
   lcd.print("Brad Saund      ");
+}
+
+void modeDisplay(uint16_t mode){
+  lcd.setCursor(0, 0);
+  lcd.print("Mode: ");
+  lcd.print(mode);
 }
 
 void lcdPrintNumberFixedWidth(int number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
