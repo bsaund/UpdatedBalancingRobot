@@ -52,32 +52,16 @@ void setup() {
   Mirf.payload = 16;
   Mirf.config();
 
-  delay(4000);
+  delay(2000);
+  Dummy_Display();
+  delay(2000);
 }
 
 void loop() {
-  unsigned long lastReceivedTime = millis();
+  
   /**********************************************************************************************************/
-  axis_x.axis_1 = analogRead(A0);
-  axis_x.axis_2 = analogRead(A1);
-  axis_x.axis_3 = analogRead(A2);
-  axis_x.axis_4 = analogRead(A3);
-
-  Mirf.setTADDR((byte *)"serv1");
-  Mirf.send((byte *)&axis_x);
-  while (Mirf.isSending()) {
-  }
-  /**********************************************************************************************************/
-  while (!Mirf.dataReady()) {
-    if ((millis() - lastReceivedTime) > 2000) {
-      lcd.setCursor(0, 0);
-      lcd.print("   Waiting...   ");
-      lcd.setCursor(0, 1);
-      lcd.print("                ");
-      return;
-    }
-  }
-  Mirf.getData((byte *)&data);
+  sendData();
+  receiveData();
   /**********************************************************************************************************/
   digitalWrite(2, HIGH);
   while (digitalRead(2) == LOW) {
@@ -95,16 +79,53 @@ void loop() {
     delay(1);
   }
 
-  if (Display_Counter & 1) {
+  switch (Display_Counter % 3){
+  case 2:
+    Dummy_Display();
+    break;
+  case 1:
     PID_Display();
-  }
-  else {
+    break;
+  case 0:
+  default:
     Gesture_Display();
+    break;
   }
+   
   /**********************************************************************************************************/
   /*Serial.print("Ping:");
   Serial.println((millis() - lastReceivedTime));*/
 }
+
+void sendData(){
+  axis_x.axis_1 = analogRead(A0);
+  axis_x.axis_2 = analogRead(A1);
+  axis_x.axis_3 = analogRead(A2);
+  axis_x.axis_4 = analogRead(A3);
+
+  Mirf.setTADDR((byte *)"serv1");
+  Mirf.send((byte *)&axis_x);
+  while (Mirf.isSending()) {
+  }
+}
+
+void receiveData(){
+  unsigned long lastReceivedTime = millis();
+  while (!Mirf.dataReady()) {
+    if ((millis() - lastReceivedTime) > 2000) {
+      lcd.setCursor(0, 0);
+      lcd.print("   Waiting...   ");
+      lcd.setCursor(0, 1);
+      lcd.print("                ");
+      return;
+    }
+  }
+  Mirf.getData((byte *)&data);
+}
+
+
+
+/******************* DISPLAYS *****************************************************************************/
 /**********************************************************************************************************/
 void PID_Display()
 {
@@ -134,7 +155,13 @@ void Gesture_Display()
   lcd.setCursor(9, 1);
   lcd.print(" S=");
   lcdPrintNumberFixedWidth(data.speed, 3, true);
+}
 
+void Dummy_Display(){
+  lcd.setCursor(0, 0);
+  lcd.print("Modified by:    ");
+  lcd.setCursor(0,1);
+  lcd.print("Brad Saund      ");
 }
 
 void lcdPrintNumberFixedWidth(int number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
