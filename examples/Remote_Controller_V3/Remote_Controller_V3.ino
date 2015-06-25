@@ -69,7 +69,7 @@ void loop() {
   }
   /**********************************************************************************************************/
   while (!Mirf.dataReady()) {
-    if ( ( millis() - lastReceivedTime ) > 2000) {
+    if ((millis() - lastReceivedTime) > 2000) {
       lcd.setCursor(0, 0);
       lcd.print("   Waiting...   ");
       lcd.setCursor(0, 1);
@@ -77,7 +77,7 @@ void loop() {
       return;
     }
   }
-  Mirf.getData((byte *) &data);
+  Mirf.getData((byte *)&data);
   /**********************************************************************************************************/
   digitalWrite(2, HIGH);
   while (digitalRead(2) == LOW) {
@@ -110,118 +110,64 @@ void PID_Display()
 {
   lcd.setCursor(0, 0);
   lcd.print("Parameter:P=");
-  if (data.P < 1000) {
-    lcd.print('0');
-    if (data.P < 100) {
-      lcd.print('0');
-      if (data.P < 10) {
-        lcd.print('0');
-      }
-    }
-  }
-  lcd.print(data.P);
+  lcdPrintNumberFixedWidth(data.P, 4, false);
   /**********************************************************************************************************/
   lcd.setCursor(0, 1);
   lcd.print(" I=");
-  if (data.I < 1000) {
-    lcd.print('0');
-    if (data.I < 100) {
-      lcd.print('0');
-      if (data.I < 10) {
-        lcd.print('0');
-      }
-    }
-  }
-  lcd.print(data.I);
+  lcdPrintNumberFixedWidth(data.I, 4, false);
   /**********************************************************************************************************/
   lcd.print("  D=");
-  if (data.D < 1000) {
-    lcd.print('0');
-    if (data.D < 100) {
-      lcd.print('0');
-      if (data.D < 10) {
-        lcd.print('0');
-      }
-    }
-  }
-  lcd.print(data.D);
+  lcdPrintNumberFixedWidth(data.D, 4, false);
 }
 /**********************************************************************************************************/
 void Gesture_Display()
 {
+  
   lcd.setCursor(0, 0);
   lcd.print("Gesture:A=");
-  if (10 <= data.angle) {
-    lcd.print("+");
-    lcd.print(data.angle);
-  }
-  if (0 < data.angle && data.angle < 10) {
-    lcd.print("+0");
-    lcd.print(data.angle);
-  }
-  if (-10 < data.angle && data.angle < 0) {
-    data.angle = -data.angle;
-    lcd.print("-0");
-    lcd.print(data.angle);
-  }
-  if (data.angle <= -10) {
-    lcd.print(data.angle);
-  }
+  lcdPrintNumberFixedWidth(data.angle, 2, true);
   /**********************************************************************************************************/
   lcd.setCursor(0, 1);
   lcd.print("O=");
-  if (100 <= data.omega) {
-    lcd.print("+");
-    lcd.print(data.omega);
-  }
-  if (10 <= data.omega && data.omega < 100) {
-    lcd.print("+0");
-    lcd.print(data.omega);
-  }
-  if (0 < data.omega && data.omega < 10) {
-    lcd.print("+00");
-    lcd.print(data.omega);
-  }
-  if (-10 < data.omega && data.omega <= 0) {
-    data.omega = -data.omega;
-    lcd.print("-00");
-    lcd.print(data.omega);
-  }
-  if (-100 < data.omega && data.omega <= -10) {
-    data.omega = -data.omega;
-    lcd.print("-0");
-    lcd.print(data.omega);
-  }
-  if (data.omega <= -100) {
-    lcd.print(data.omega);
-  }
+  lcdPrintNumberFixedWidth(data.omega, 3, true);
   /**********************************************************************************************************/
   lcd.setCursor(9, 1);
   lcd.print(" S=");
-  if (data.speed <= -100) {
-    lcd.print(data.speed);
+  lcdPrintNumberFixedWidth(data.speed, 3, true);
+
+}
+
+void lcdPrintNumberFixedWidth(int number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
+  printHelper((float)number, numPlacesBeforeDecimal, displayPlusMinus);
+  lcd.print(abs(number));
+}
+
+void lcdPrintNumberFixedWidth(float number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
+  printHelper(number, numPlacesBeforeDecimal, displayPlusMinus);
+  lcd.print(abs(number));
+}
+
+void printHelper(float number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
+  if (displayPlusMinus){
+    number < 0 ? lcd.print("-") : lcd.print("+");
   }
-  if (-100 < data.speed && data.speed <= -10) {
-    data.speed = -data.speed;
-    lcd.print("-0");
-    lcd.print(data.speed);
-  }
-  if (-10 < data.speed && data.speed <= 0) {
-    data.speed = -data.speed;
-    lcd.print("-00");
-    lcd.print(data.speed);
-  }
-  if (0 < data.speed && data.speed < 10) {
-    lcd.print("+00");
-    lcd.print(data.speed);
-  }
-  if (10 <= data.speed && data.speed < 100) {
-    lcd.print("+0");
-    lcd.print(data.speed);
-  }
-  if (100 <= data.speed) {
-    lcd.print("+");
-    lcd.print(data.speed);
+  while (numPlacesBeforeDecimal > 1 && pow(10, numPlacesBeforeDecimal - 1) > abs(number)){
+    lcd.print("0");
+    numPlacesBeforeDecimal--;
   }
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
