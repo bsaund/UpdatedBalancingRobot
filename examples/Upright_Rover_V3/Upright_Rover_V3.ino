@@ -43,6 +43,15 @@ int TN3 = 24;
 int TN4 = 25;
 int ENB = 4;
 
+enum modes {
+  Default,
+  PidAdjust,
+  Drive,
+  Placeholder
+};
+
+//modes MODE;
+
 
 
 struct Axis  // Datas from remote control
@@ -173,22 +182,19 @@ void Recive()
     Serial.print("  axis_8=");
     Serial.println(axis_x.axis_8);*/
 
+    data.omega = omega;
+    data.angle = Angle_Filtered;
+    data.speed = Sum_Right;
+    data.P = kp;
+    data.I = ki;
+    data.D = kd * 100;//Convention to pass d*100 over wireless
+
     Mirf.setTADDR((byte *)"clie1");
     Mirf.send((byte *)&data);  // Send datas back to the controller
 
     MODE = axis_x.axis_8;
-
+    //MODE = static_cast<modes>(axis_x.axis_8);
   }
-  else
-  {
-    axis_x.axis_1 = axis_x.axis_4 = 500;
-  }
-  data.omega = omega;
-  data.angle = Angle_Filtered;
-  data.speed = Sum_Right;
-  data.P = kp;// analogRead(A0);
-  data.I = ki;// analogRead(A1);
-  data.D = kd * 100;//Convention to pass d*100 over wireless // analogRead(A2);
 }
 
 void updatePidValues(){
@@ -196,39 +202,17 @@ void updatePidValues(){
     return;
   }
 
-  kp *= 1 + (float)map(axis_x.axis_2, 0, 1023, -95, 100)/30000;
-  kd *= 1 + (float)map(axis_x.axis_3, 0, 1023, -100, 95) / 30000;
+  kp *= 1 + mapJoystick(axis_x.axis_2, -.003, .003, 5);
+  kd *= 1 + mapJoystick(axis_x.axis_3, -.003, .003, 5);
 }
 
 void updateSpeeds(){
   if (MODE != 2){
     return;
   }
-  if (axis_x.axis_1 >= 520) // Y axis datas from joystick_1
-  {
-    Turn_Speed = map(axis_x.axis_1, 520, 1023, 0, 120);
-  }
-  else if (axis_x.axis_1 <= 480)
-  {
-    Turn_Speed = map(axis_x.axis_1, 480, 0, 0, -120);
-  }
-  else
-  {
-    Turn_Speed = 0;
-  }
-
-  if (axis_x.axis_4 >= 520) // X axis datas from joystick_2
-  {
-    Run_Speed = map(axis_x.axis_4, 520, 1023, 0, 100);
-  }
-  else if (axis_x.axis_4 <= 480)
-  {
-    Run_Speed = map(axis_x.axis_4, 480, 0, 0, -100);
-  }
-  else
-  {
-    Run_Speed = 0;
-  }
+  
+  Run_Speed = mapJoystick(axis_x.axis_4, -100, 100);
+  Turn_Speed = mapJoystick(axis_x.axis_1, -120, 120);
 }
 
 void Filter()
@@ -312,6 +296,16 @@ void PWMControl()
   }
   OCR3A = min(1023, (abs(LOutput * 4) + LMotor_offset * 4)); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
   OCR0B = min(255, (abs(ROutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
+}
+
+float mapJoystick(long x, float out_min, float out_max){
+  return mapJoystick(x, out_min, out_max, 3);
+}
+
+float mapJoystick(long x, float out_min, float out_max, int decimalsOfAccuracy){
+  long multiplier = pow(10, decimalsOfAccuracy);
+  long interm = mapWithDeadBand(x, 0, 1023, out_min * multiplier, out_max * multiplier, 480, 520);
+  return (float)interm / multiplier;
 }
 
 long mapWithDeadBand(long x, long in_min, long in_max, long out_min, long out_max, long deadband_min, long deadband_max){

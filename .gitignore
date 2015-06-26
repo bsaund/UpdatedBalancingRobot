@@ -5,3 +5,8 @@ java
 hardware
 examples/Remote_Controller_V3/Visual Micro
 *.vcxproj
+examples/Upright_Rover_V3/Visual Micro/
+
+examples/ArduinoISP/
+lib/
+*.filters
