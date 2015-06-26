@@ -155,7 +155,7 @@ void PID_Display()
   lcdPrintNumberFixedWidth(data.I, 4, false);
   /**********************************************************************************************************/
   lcd.print("  D=");
-  lcdPrintNumberFixedWidth(data.D, 4, false);
+  lcdPrintNumberFixedWidth((float)data.D/100, 2, false); //convention to pass D*100 over wireless
 }
 /**********************************************************************************************************/
 void Gesture_Display()

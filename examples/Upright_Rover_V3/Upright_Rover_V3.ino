@@ -1,6 +1,7 @@
 // SainSmart Instabots Upright Rover rev. 3.0
 // Updatas at http://www.sainsmart.com
 
+#include "blink.h"
 #include <Wire.h>
 #include <SPI.h>
 #include <Mirf.h>
@@ -27,6 +28,7 @@ float kp, ki, kd;
 float Angle_Raw, Angle_Filtered, omega, dt;
 float Turn_Speed = 0, Run_Speed = 0;
 float LOutput, ROutput, Input, Output;
+uint16_t MODE = 0;
 
 unsigned long preTime, lastTime;
 float errSum, dErr, error, lastErr;
@@ -40,6 +42,7 @@ int ENA = 5;
 int TN3 = 24;
 int TN4 = 25;
 int ENB = 4;
+
 
 
 struct Axis  // Datas from remote control
@@ -100,6 +103,7 @@ void setup()
   pinMode(ENB, OUTPUT);
   pinMode(18, INPUT);
   pinMode(2, INPUT);
+  pinMode(41, OUTPUT);
 
   attachInterrupt(4, State_A, FALLING);
   attachInterrupt(1, State_B, FALLING);
@@ -112,32 +116,38 @@ void setup()
   Mirf.setRADDR((byte *)"serv1");
   Mirf.payload = 16;
   Mirf.config();
+  //digitalWrite(43, HIGH);
+  digitalWrite(41, LOW);
+  Blink.init(43);
+  kp = 22.000;
+  ki = 0;
+  kd = 1.60;
 }
 
 void loop()
 {
-  while (1)
+  Recive();
+  if ((micros() - lastTime) > 10000)
   {
-    Recive();
-    if ((micros() - lastTime) > 10000)
+    updatePidValues();
+    updateSpeeds();
+    Filter();
+    // If angle > 45 or < -45 then stop the robot
+    if (abs(Angle_Filtered) < 45)
     {
-      Filter();
-      // If angle > 45 or < -45 then stop the robot
-      if (abs(Angle_Filtered) < 45)
-      {
-        myPID();
-        PWMControl();
-      }
-      else
-      {
-        digitalWrite(TN1, HIGH);
-        digitalWrite(TN2, HIGH);
-        digitalWrite(TN3, HIGH);
-        digitalWrite(TN4, HIGH);
-      }
-      lastTime = micros();
+      myPID();
+      PWMControl();
     }
+    else
+    {
+      digitalWrite(TN1, HIGH);
+      digitalWrite(TN2, HIGH);
+      digitalWrite(TN3, HIGH);
+      digitalWrite(TN4, HIGH);
+    }
+    lastTime = micros();
   }
+  Blink.blinkFor(150, MODE, 3);
 }
 
 void Recive()
@@ -145,7 +155,7 @@ void Recive()
   if (!Mirf.isSending() && Mirf.dataReady())
   {
     // Read datas from the romote controller
-    Mirf.getData((byte *) &axis_x);
+    Mirf.getData((byte *)&axis_x);
     /*Serial.print("axis_1=");
     Serial.print(axis_x.axis_1);
     Serial.print("  axis_2=");
@@ -164,33 +174,9 @@ void Recive()
     Serial.println(axis_x.axis_8);*/
 
     Mirf.setTADDR((byte *)"clie1");
-    Mirf.send((byte *) &data);  // Send datas back to the controller
+    Mirf.send((byte *)&data);  // Send datas back to the controller
 
-    if (axis_x.axis_1 >= 520) // Y axis datas from joystick_1
-    {
-      Turn_Speed = map(axis_x.axis_1, 520, 1023, 0, 120);
-    }
-    else if (axis_x.axis_1 <= 480)
-    {
-      Turn_Speed = map(axis_x.axis_1, 480 , 0, 0, -120);
-    }
-    else
-    {
-      Turn_Speed = 0;
-    }
-
-    if (axis_x.axis_4 >= 520) // X axis datas from joystick_2
-    {
-      Run_Speed = map(axis_x.axis_4, 520, 1023, 0, 100);
-    }
-    else if (axis_x.axis_4 <= 480)
-    {
-      Run_Speed = map(axis_x.axis_4, 480, 0, 0, -100);
-    }
-    else
-    {
-      Run_Speed = 0;
-    }
+    MODE = axis_x.axis_8;
 
   }
   else
@@ -200,9 +186,49 @@ void Recive()
   data.omega = omega;
   data.angle = Angle_Filtered;
   data.speed = Sum_Right;
-  data.P = analogRead(A0);
-  data.I = analogRead(A1);
-  data.D = analogRead(A2);
+  data.P = kp;// analogRead(A0);
+  data.I = ki;// analogRead(A1);
+  data.D = kd * 100;//Convention to pass d*100 over wireless // analogRead(A2);
+}
+
+void updatePidValues(){
+  if (MODE != 1){
+    return;
+  }
+
+  kp *= 1 + (float)map(axis_x.axis_2, 0, 1023, -95, 100)/30000;
+  kd *= 1 + (float)map(axis_x.axis_3, 0, 1023, -100, 95) / 30000;
+}
+
+void updateSpeeds(){
+  if (MODE != 2){
+    return;
+  }
+  if (axis_x.axis_1 >= 520) // Y axis datas from joystick_1
+  {
+    Turn_Speed = map(axis_x.axis_1, 520, 1023, 0, 120);
+  }
+  else if (axis_x.axis_1 <= 480)
+  {
+    Turn_Speed = map(axis_x.axis_1, 480, 0, 0, -120);
+  }
+  else
+  {
+    Turn_Speed = 0;
+  }
+
+  if (axis_x.axis_4 >= 520) // X axis datas from joystick_2
+  {
+    Run_Speed = map(axis_x.axis_4, 520, 1023, 0, 100);
+  }
+  else if (axis_x.axis_4 <= 480)
+  {
+    Run_Speed = map(axis_x.axis_4, 480, 0, 0, -100);
+  }
+  else
+  {
+    Run_Speed = 0;
+  }
 }
 
 void Filter()
@@ -224,9 +250,7 @@ void Filter()
 
 void myPID()
 {
-  kp = 22.000; 
-  ki = 0;
-  kd = 1.60;
+
   // Calculating the output values using the gesture values and the PID values.
   error = Angle_Filtered;
   errSum += error;
@@ -234,11 +258,11 @@ void myPID()
   Output = kp * error + ki * errSum + kd * omega;
   lastErr = error;
   noInterrupts();
-  if(abs(Sum_Left - Sum_Left_Temp) > 300)
+  if (abs(Sum_Left - Sum_Left_Temp) > 300)
   {
     Sum_Left = Sum_Left_Temp;
   }
-  if(abs(Sum_Right - Sum_Right_Temp) > 300)
+  if (abs(Sum_Right - Sum_Right_Temp) > 300)
   {
     Sum_Right = Sum_Right_Temp;
   }
@@ -290,33 +314,40 @@ void PWMControl()
   OCR0B = min(255, (abs(ROutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
 }
 
+long mapWithDeadBand(long x, long in_min, long in_max, long out_min, long out_max, long deadband_min, long deadband_max){
+  if (x > deadband_min && x < deadband_max){
+    return 0;
+  }
+  return map(x, in_min, in_max, out_min, out_max);
+}
+
 /*void State_A()
 {
-  FlagA = digitalRead(18);
+FlagA = digitalRead(18);
 }
 
 void State_B()
 {
-  FlagB = digitalRead(19);
-  if (FlagA == FlagB)
-  {
-    Counter --;
-  }
-  else
-  {
-    Counter ++;
-  }
+FlagB = digitalRead(19);
+if (FlagA == FlagB)
+{
+Counter --;
+}
+else
+{
+Counter ++;
+}
 }*/
 
 void State_A()
 {
   if (digitalRead(18))
   {
-    Sum_Right ++;
+    Sum_Right++;
   }
   else
   {
-    Sum_Right --;
+    Sum_Right--;
   }
 }
 
@@ -324,11 +355,11 @@ void State_B()
 {
   if (!digitalRead(2))
   {
-    Sum_Left ++;
+    Sum_Left++;
   }
   else
   {
-    Sum_Left --;
+    Sum_Left--;
   }
 }
 
