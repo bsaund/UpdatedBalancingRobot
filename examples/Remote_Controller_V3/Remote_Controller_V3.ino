@@ -14,6 +14,12 @@ LiquidCrystal_I2C lcd(0x27, 16, 2);
 
 uint16_t Display_Counter;
 uint16_t NUM_MODES = 4;
+enum Modes {
+  Default,
+  PidAdjust,
+  Drive,
+  DirectControl
+};
 
 struct Axis {
   uint16_t axis_1;
@@ -34,8 +40,8 @@ struct Gesture {
   int P;
   int I;
   int D;
-  uint16_t null_1;
-  uint16_t null_2;
+  int16_t misc_1;
+  int16_t misc_2;
 };
 Gesture data;
 
@@ -81,11 +87,12 @@ void loop() {
   }
 
   
-  switch (Display_Counter){
-  case 2:
-    bradDisplay();
+  switch (static_cast<Modes>(Display_Counter)){
+  case DirectControl:
+  case Drive:
+    driveDisplay();
     break;
-  case 1:
+  case PidAdjust:
     PID_Display();
     break;
   case 0:
@@ -178,6 +185,15 @@ void bradDisplay(){
   lcd.print("Modified by:    ");
   lcd.setCursor(0,1);
   lcd.print("Brad Saund      ");
+}
+
+void driveDisplay(){
+  lcd.setCursor(0, 0);
+  lcd.print("L = ");
+  lcdPrintNumberFixedWidth(data.misc_1, 4, true);
+  lcd.setCursor(0, 1);
+  lcd.print("R = ");
+  lcdPrintNumberFixedWidth(data.misc_2, 4, true);
 }
 
 void modeDisplay(uint16_t mode){

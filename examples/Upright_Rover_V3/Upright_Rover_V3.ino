@@ -28,7 +28,7 @@ float kp, ki, kd;
 float Angle_Raw, Angle_Filtered, omega, dt;
 float Turn_Speed = 0, Run_Speed = 0;
 float LOutput, ROutput, Input, Output;
-uint16_t MODE = 0;
+//uint16_t MODE = 0;
 
 unsigned long preTime, lastTime;
 float errSum, dErr, error, lastErr;
@@ -43,14 +43,14 @@ int TN3 = 24;
 int TN4 = 25;
 int ENB = 4;
 
-enum modes {
+enum Modes {
   Default,
   PidAdjust,
   Drive,
-  Placeholder
+  DirectControl
 };
 
-//modes MODE;
+Modes MODE;
 
 
 
@@ -75,8 +75,8 @@ struct Gesture  // Datas send back to remote control
   uint16_t P;
   uint16_t I;
   uint16_t D;
-  uint16_t null_1;
-  uint16_t null_2;
+  int16_t misc_1;
+  int16_t misc_2;
 };
 Gesture data;
 
@@ -138,6 +138,9 @@ void loop()
   Recive();
   if ((micros() - lastTime) > 10000)
   {
+    if (directControl()){
+      return;
+    }
     updatePidValues();
     updateSpeeds();
     Filter();
@@ -156,7 +159,7 @@ void loop()
     }
     lastTime = micros();
   }
-  Blink.blinkFor(150, MODE, 3);
+  Blink.blinkFor(150, static_cast<int>(MODE), 3);
 }
 
 void Recive()
@@ -192,13 +195,13 @@ void Recive()
     Mirf.setTADDR((byte *)"clie1");
     Mirf.send((byte *)&data);  // Send datas back to the controller
 
-    MODE = axis_x.axis_8;
-    //MODE = static_cast<modes>(axis_x.axis_8);
+    //MODE = axis_x.axis_8;
+    MODE = static_cast<Modes>(axis_x.axis_8);
   }
 }
 
 void updatePidValues(){
-  if (MODE != 1){
+  if (MODE != PidAdjust){
     return;
   }
 
@@ -207,12 +210,23 @@ void updatePidValues(){
 }
 
 void updateSpeeds(){
-  if (MODE != 2){
+  if (MODE != Drive){
     return;
   }
   
   Run_Speed = mapJoystick(axis_x.axis_4, -100, 100);
   Turn_Speed = mapJoystick(axis_x.axis_1, -120, 120);
+}
+
+boolean directControl(){
+  if (MODE != DirectControl){
+    return false;
+  }
+
+  LOutput = mapJoystick(axis_x.axis_2, -255, 255);
+  ROutput = mapJoystick(axis_x.axis_4, -255, 255);
+  PWMControl();
+  return true;
 }
 
 void Filter()
@@ -266,34 +280,11 @@ void myPID()
 
 void PWMControl()
 {
-  if (LOutput > 0)
-  {
-    digitalWrite(TN1, HIGH);
-    digitalWrite(TN2, LOW);
-  }
-  else if (LOutput < 0)
-  {
-    digitalWrite(TN1, LOW);
-    digitalWrite(TN2, HIGH);
-  }
-  else
-  {
-    OCR3A = 0;
-  }
-  if (ROutput > 0)
-  {
-    digitalWrite(TN3, HIGH);
-    digitalWrite(TN4, LOW);
-  }
-  else if (ROutput < 0)
-  {
-    digitalWrite(TN3, LOW);
-    digitalWrite(TN4, HIGH);
-  }
-  else
-  {
-    OCR0B = 0;
-  }
+  digitalWrite(TN1, LOutput > 0);
+  digitalWrite(TN2, LOutput <= 0);
+  digitalWrite(TN3, ROutput > 0);
+  digitalWrite(TN4, ROutput <= 0);
+
   OCR3A = min(1023, (abs(LOutput * 4) + LMotor_offset * 4)); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
   OCR0B = min(255, (abs(ROutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
 }
