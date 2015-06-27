@@ -75,8 +75,8 @@ struct Gesture  // Datas send back to remote control
   uint16_t P;
   uint16_t I;
   uint16_t D;
-  int16_t misc_1;
-  int16_t misc_2;
+  long distLeft;
+  long distRight;
 };
 Gesture data;
 
@@ -123,7 +123,7 @@ void setup()
   Mirf.spi = &MirfHardwareSpi;
   Mirf.init();
   Mirf.setRADDR((byte *)"serv1");
-  Mirf.payload = 16;
+  Mirf.payload = 24;
   Mirf.config();
   //digitalWrite(43, HIGH);
   digitalWrite(41, LOW);
@@ -192,6 +192,8 @@ void Recive()
     data.P = kp;
     data.I = ki;
     data.D = kd * 100;//Convention to pass d*100 over wireless
+    data.distLeft = Sum_Left;
+    data.distRight = Sum_Right;
 
     Mirf.setTADDR((byte *)"clie1");
     Mirf.send((byte *)&data);  // Send datas back to the controller

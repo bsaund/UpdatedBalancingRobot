@@ -40,8 +40,8 @@ struct Gesture {
   int P;
   int I;
   int D;
-  int16_t misc_1;
-  int16_t misc_2;
+  long distLeft;
+  long distRight;
 };
 Gesture data;
 
@@ -58,7 +58,7 @@ void setup() {
   Mirf.spi = &MirfHardwareSpi;
   Mirf.init();
   Mirf.setRADDR((byte *)"clie1");
-  Mirf.payload = 16;
+  Mirf.payload = 24;
   Mirf.config();
 
   delay(1500);
@@ -190,10 +190,10 @@ void bradDisplay(){
 void driveDisplay(){
   lcd.setCursor(0, 0);
   lcd.print("L = ");
-  lcdPrintNumberFixedWidth(data.misc_1, 4, true);
+  lcdPrintNumberFixedWidth(data.distLeft, 10, true);
   lcd.setCursor(0, 1);
   lcd.print("R = ");
-  lcdPrintNumberFixedWidth(data.misc_2, 4, true);
+  lcdPrintNumberFixedWidth(data.distRight, 10, true);
 }
 
 void modeDisplay(uint16_t mode){
@@ -202,9 +202,13 @@ void modeDisplay(uint16_t mode){
   lcd.print(mode);
 }
 
-void lcdPrintNumberFixedWidth(int number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
+void lcdPrintNumberFixedWidth(long number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
   printHelper((float)number, numPlacesBeforeDecimal, displayPlusMinus);
   lcd.print(abs(number));
+}
+
+void lcdPrintNumberFixedWidth(int number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
+  lcdPrintNumberFixedWidth((long)number, numPlacesBeforeDecimal, displayPlusMinus);
 }
 
 void lcdPrintNumberFixedWidth(float number, int numPlacesBeforeDecimal, boolean displayPlusMinus){
