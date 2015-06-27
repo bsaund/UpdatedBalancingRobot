@@ -138,6 +138,7 @@ void loop()
   Recive();
   if ((micros() - lastTime) > 10000)
   {
+    Blink.blinkFor(150, axis_x.axis_8, 3);
     if (directControl()){
       return;
     }
@@ -159,7 +160,7 @@ void loop()
     }
     lastTime = micros();
   }
-  Blink.blinkFor(150, static_cast<int>(MODE), 3);
+  
 }
 
 void Recive()
