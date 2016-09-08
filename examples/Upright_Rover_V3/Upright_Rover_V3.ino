@@ -4,13 +4,13 @@
 #include "blink.h"
 #include <Wire.h>
 #include <SPI.h>
-#include <Mirf.h>
-#include <nRF24L01.h>
-#include <MirfHardwareSpiDriver.h>
+/* #include <Mirf.h> */
+/* #include <nRF24L01.h> */
+/* #include <MirfHardwareSpiDriver.h> */
 #include <I2Cdev.h>
 #include <MPU6050.h>
 
-MPU6050 accelgyro;
+MPU6050 imu;
 MPU6050 initialize;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
@@ -92,7 +92,7 @@ void setup()
 
   /* If the robot was turned on with the angle over 45(-45) degrees,the wheels
    will not spin until the robot is in right position. */
-  accelgyro.initialize();
+  imu.initialize();
   for (int i = 0; i < 200; i++) // Looping 200 times to get the real gesture when starting
   {
     Filter();
@@ -118,13 +118,13 @@ void setup()
   attachInterrupt(1, State_B, FALLING);
 
   // 24L01 initialization
-  Mirf.cePin = 53;
-  Mirf.csnPin = 48;
-  Mirf.spi = &MirfHardwareSpi;
-  Mirf.init();
-  Mirf.setRADDR((byte *)"serv1");
-  Mirf.payload = 24;
-  Mirf.config();
+  /* Mirf.cePin = 53; */
+  /* Mirf.csnPin = 48; */
+  /* Mirf.spi = &MirfHardwareSpi; */
+  /* Mirf.init(); */
+  /* Mirf.setRADDR((byte *)"serv1"); */
+  /* Mirf.payload = 24; */
+  /* Mirf.config(); */
   //digitalWrite(43, HIGH);
   digitalWrite(41, LOW);
   Blink.init(43);
@@ -135,7 +135,7 @@ void setup()
 
 void loop()
 {
-  Recive();
+  /* Recive(); */
   if ((micros() - lastTime) > 10000)
   {
     Blink.blinkFor(150, axis_x.axis_8, 3);
@@ -163,45 +163,45 @@ void loop()
   
 }
 
-void Recive()
-{
-  if (!Mirf.isSending() && Mirf.dataReady())
-  {
-    // Read datas from the romote controller
-    Mirf.getData((byte *)&axis_x);
-    /*Serial.print("axis_1=");
-    Serial.print(axis_x.axis_1);
-    Serial.print("  axis_2=");
-    Serial.print(axis_x.axis_2);
-    Serial.print("  axis_3=");
-    Serial.print(axis_x.axis_3);
-    Serial.print("  axis_4=");
-    Serial.print(axis_x.axis_4);
-    Serial.print("  axis_5=");
-    Serial.print(axis_x.axis_5);
-    Serial.print("  axis_6=");
-    Serial.print(axis_x.axis_6);
-    Serial.print("  axis_7=");
-    Serial.print(axis_x.axis_7);
-    Serial.print("  axis_8=");
-    Serial.println(axis_x.axis_8);*/
+/* void Recive() */
+/* { */
+/*   if (!Mirf.isSending() && Mirf.dataReady()) */
+/*   { */
+/*     // Read datas from the romote controller */
+/*     Mirf.getData((byte *)&axis_x); */
+/*     /\*Serial.print("axis_1="); */
+/*     Serial.print(axis_x.axis_1); */
+/*     Serial.print("  axis_2="); */
+/*     Serial.print(axis_x.axis_2); */
+/*     Serial.print("  axis_3="); */
+/*     Serial.print(axis_x.axis_3); */
+/*     Serial.print("  axis_4="); */
+/*     Serial.print(axis_x.axis_4); */
+/*     Serial.print("  axis_5="); */
+/*     Serial.print(axis_x.axis_5); */
+/*     Serial.print("  axis_6="); */
+/*     Serial.print(axis_x.axis_6); */
+/*     Serial.print("  axis_7="); */
+/*     Serial.print(axis_x.axis_7); */
+/*     Serial.print("  axis_8="); */
+/*     Serial.println(axis_x.axis_8);*\/ */
 
-    data.omega = omega;
-    data.angle = Angle_Filtered;
-    data.speed = Sum_Right;
-    data.P = kp;
-    data.I = ki;
-    data.D = kd * 100;//Convention to pass d*100 over wireless
-    data.distLeft = Sum_Left;
-    data.distRight = Sum_Right;
+/*     data.omega = omega; */
+/*     data.angle = Angle_Filtered; */
+/*     data.speed = Sum_Right; */
+/*     data.P = kp; */
+/*     data.I = ki; */
+/*     data.D = kd * 100;//Convention to pass d*100 over wireless */
+/*     data.distLeft = Sum_Left; */
+/*     data.distRight = Sum_Right; */
 
-    Mirf.setTADDR((byte *)"clie1");
-    Mirf.send((byte *)&data);  // Send datas back to the controller
+/*     Mirf.setTADDR((byte *)"clie1"); */
+/*     Mirf.send((byte *)&data);  // Send datas back to the controller */
 
-    //MODE = axis_x.axis_8;
-    MODE = static_cast<Modes>(axis_x.axis_8);
-  }
-}
+/*     //MODE = axis_x.axis_8; */
+/*     MODE = static_cast<Modes>(axis_x.axis_8); */
+/*   } */
+/* } */
 
 void updatePidValues(){
   if (MODE != PidAdjust){
@@ -235,7 +235,10 @@ boolean directControl(){
 void Filter()
 {
   // Raw datas
-  accelgyro.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
+  Serial.print("ax: ");
+  Serial.println(ax);
+
   Angle_Raw = (atan2(ay, az) * 180 / pi + Angle_offset);
   omega = gx / Gyr_Gain + Gry_offset;
   // Filter datas to get the real gesture
