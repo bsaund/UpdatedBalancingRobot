@@ -96,30 +96,17 @@ FILE *serialInit(char * port, int baud)
   tcflush(fd, TCIFLUSH);
   //Look up appropriate baud rate constant
   switch (baud)
-  {
-     case 38400:
-     default:
-        BAUD = B38400;
-        break;
-     case 19200:
-        BAUD  = B19200;
-        break;
-     case 9600:
-        BAUD  = B9600;
-        break;
-     case 4800:
-        BAUD  = B4800;
-        break;
-     case 2400:
-        BAUD  = B2400;
-        break;
-     case 1800:
-        BAUD  = B1800;
-        break;
-     case 1200:
-        BAUD  = B1200;
-        break;
-  }  //end of switch baud_rate
+    {
+    case 115200: BAUD = B115200;    break;
+    case 38400:
+    default:     BAUD  = B38400;    break;
+    case 19200:  BAUD  = B19200;    break;
+    case 9600:   BAUD  = B9600;     break;
+    case 4800:   BAUD  = B4800;     break;
+    case 2400:   BAUD  = B2400;     break;
+    case 1800:   BAUD  = B1800;     break;
+    case 1200:   BAUD  = B1200;     break;
+    }  //end of switch baud_rate
   if (cfsetispeed(&newtio, BAUD) < 0 || cfsetospeed(&newtio, BAUD) < 0)
   {
     ROS_ERROR("serialInit: Failed to set serial baud rate: %d", baud);
