@@ -1,0 +1,9 @@
+<launch>
+  <env name="ROSCONSOLE_CONFIG_FILE"
+       value="$(find balancing_robot)/rosconsole.conf"/>
+  <node pkg="balancing_robot"
+	type="arduino_communication"
+	name="arduino_communication"
+	args="0 /dev/ttyACM0 115200"
+	output="screen"/>
+</launch>

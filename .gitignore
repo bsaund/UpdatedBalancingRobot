@@ -10,3 +10,9 @@ examples/Upright_Rover_V3/Visual Micro/
 examples/ArduinoISP/
 lib/
 *.filters
+
+#Ros Stuff
+examples/ros/build
+examples/ros/logs
+examples/ros/devel
+examples/ros/.catkin_tools
