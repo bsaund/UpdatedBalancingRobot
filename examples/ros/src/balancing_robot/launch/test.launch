@@ -5,5 +5,10 @@
 	type="arduino_communication"
 	name="arduino_communication"
 	args="0 /dev/ttyACM0 115200"
-	output="screen"/>
+	output="screen">
+  </node>
+
+  <node pkg="rviz" type="rviz" name="rviz_robot" required="true"
+	args="-d $(find balancing_robot)/rviz_config.rviz"/>
+  <node pkg="balancing_robot" type="arduino_data_parsing" name="arduino_data_parsing"/>
 </launch>
