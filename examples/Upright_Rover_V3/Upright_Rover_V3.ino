@@ -15,8 +15,8 @@ MPU6050 initialize;
 int16_t ax, ay, az;
 int16_t gx, gy, gz;
 
-#define Gry_offset 0  //The offset of the gyro
-#define Gyr_Gain 131
+#define Gyro_offset 0  //The offset of the gyro
+#define Gyro_gain 131
 #define Angle_offset 0  // The offset of the accelerator
 #define RMotor_offset 0  // The offset of the Motor
 #define LMotor_offset 0  // The offset of the Motor
@@ -25,7 +25,7 @@ int16_t gx, gy, gz;
 float Angle_Delta, Angle_Recursive, Angle_Confidence;
 
 float kp, ki, kd;
-float Angle_Raw, Angle_Filtered, omega, dt;
+double thetaBody;
 float Turn_Speed = 0, Run_Speed = 0;
 float LOutput, ROutput, Input, Output;
 //uint16_t MODE = 0;
@@ -93,17 +93,10 @@ void setup()
   /* If the robot was turned on with the angle over 45(-45) degrees,the wheels
    will not spin until the robot is in right position. */
   imu.initialize();
-  for (int i = 0; i < 200; i++) // Looping 200 times to get the real gesture when starting
-  {
-    Filter();
-  }
-  if (abs(Angle_Filtered) < 45)  // Start to work after cleaning data
-  {
-    omega = Angle_Raw = Angle_Filtered = 0;
-    Output = error = errSum = dErr = 0;
-    Filter();
-    myPID();
-  }
+
+  lastTime = millis();
+
+  filterIMU(10000);
   pinMode(TN1, OUTPUT);
   pinMode(TN2, OUTPUT);
   pinMode(TN3, OUTPUT);
@@ -136,31 +129,30 @@ void setup()
 void loop()
 {
   /* Recive(); */
-  if ((micros() - lastTime) > 10000)
-  {
-    Blink.blinkFor(150, axis_x.axis_8, 3);
-    if (directControl()){
-      return;
-    }
-    updatePidValues();
-    updateSpeeds();
-    Filter();
-    // If angle > 45 or < -45 then stop the robot
-    if (abs(Angle_Filtered) < 45)
-    {
-      myPID();
-      PWMControl();
-    }
-    else
-    {
-      digitalWrite(TN1, HIGH);
-      digitalWrite(TN2, HIGH);
-      digitalWrite(TN3, HIGH);
-      digitalWrite(TN4, HIGH);
-    }
-    lastTime = micros();
+  int dt = millis() - lastTime;
+  if (dt < 10)
+    return;
+
+  lastTime = millis();  
+
+  Blink.blinkFor(150, 2, 3);
+  if (directControl()){
+    return;
   }
-  
+  updatePidValues();
+  updateSpeeds();
+  filterIMU(dt);
+  writeSerialData();
+  // If angle > 45 or < -45 then stop the robot
+  if (abs(thetaBody) < 45){
+    myPID();
+    PWMControl();
+  } else {
+    digitalWrite(TN1, HIGH);
+    digitalWrite(TN2, HIGH);
+    digitalWrite(TN3, HIGH);
+    digitalWrite(TN4, HIGH);
+  }
 }
 
 /* void Recive() */
@@ -187,7 +179,7 @@ void loop()
 /*     Serial.println(axis_x.axis_8);*\/ */
 
 /*     data.omega = omega; */
-/*     data.angle = Angle_Filtered; */
+/*     data.angle = thetaBody; */
 /*     data.speed = Sum_Right; */
 /*     data.P = kp; */
 /*     data.I = ki; */
@@ -232,34 +224,41 @@ boolean directControl(){
   return true;
 }
 
-void Filter()
+void filterIMU(int loopTimeMS)
 {
+  double tau = 0.075;
+  
+  double dt = (double)loopTimeMS / 1000;
   // Raw datas
   imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
-  Serial.print("ax: ");
-  Serial.println(ax);
 
-  Angle_Raw = (atan2(ay, az) * 180 / pi + Angle_offset);
-  omega = gx / Gyr_Gain + Gry_offset;
-  // Filter datas to get the real gesture
-  unsigned long now = micros();
-  timeChange = now - preTime;
-  preTime = now;
-  dt = timeChange * 0.000001;
-  Angle_Delta = (Angle_Raw - Angle_Filtered) * 0.64;
-  Angle_Recursive = Angle_Delta * dt + Angle_Recursive;
-  Angle_Confidence = Angle_Recursive + (Angle_Raw - Angle_Filtered) * 1.6 + omega;
-  Angle_Filtered = Angle_Confidence * dt + Angle_Filtered;
+  double measuredAngle = (atan2(ay, az) * 180 / pi + Angle_offset);
+  double thetaDot = (double)gx / Gyro_gain + Gyro_offset;
+
+  double a = tau/(tau+dt);
+
+  thetaBody = a*(thetaBody + thetaDot*dt) + (1-a)*measuredAngle;
+    
+  /* Angle_Delta = (Angle_Raw - Angle_Filtered) * 0.64; */
+  /* Angle_Recursive = Angle_Delta * dt + Angle_Recursive; */
+  /* Angle_Confidence = Angle_Recursive + (Angle_Raw - Angle_Filtered) * 1.6 + omega; */
+  /* Angle_Filtered = Angle_Confidence * dt + Angle_Filtered; */
+}
+
+void writeSerialData()
+{
+  Serial.println(thetaBody);
 }
 
 void myPID()
 {
 
   // Calculating the output values using the gesture values and the PID values.
-  error = Angle_Filtered;
+  error = thetaBody;
   errSum += error;
   dErr = error - lastErr;
-  Output = kp * error + ki * errSum + kd * omega;
+  /* Output = kp * error + ki * errSum + kd * omega; */
+  Output = kp * error + ki * errSum;
   lastErr = error;
   noInterrupts();
   if (abs(Sum_Left - Sum_Left_Temp) > 300)
