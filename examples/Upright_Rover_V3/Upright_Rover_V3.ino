@@ -226,7 +226,7 @@ boolean directControl(){
 
 void filterIMU(int loopTimeMS)
 {
-  double tau = 0.075;
+  double tau = 0.5;
   
   double dt = (double)loopTimeMS / 1000;
   // Raw datas
