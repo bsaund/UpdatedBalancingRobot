@@ -16,8 +16,8 @@ MPU6050 imu;
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
 #define Angle_offset 0  // The offset of the accelerator
-#define RMotor_offset 0  // The offset of the Motor
-#define LMotor_offset 0  // The offset of the Motor
+#define RMotor_offset 20  // The offset of the Motor
+#define LMotor_offset 20  // The offset of the Motor
 #define pi 3.14159
 #define TICKS_TO_ANG 1151
 
@@ -142,8 +142,8 @@ void Recieve()
   Serial.readBytesUntil(';', serialData, 19);
   value = atof(&serialData[1]);
   numBlinks = (int)value;
-  Serial.print("debug: ");
-  Serial.println(serialData);
+  /* Serial.print("debug: "); */
+  /* Serial.println(serialData); */
   cmdVel = value;
 }
 
@@ -177,10 +177,14 @@ void filterSpeed(double dt){
   double tau = 0.02;
   double a = tau/(tau+dt);
 
-  lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG;
-  rSpeed = a*rSpeed + (1-a)*(rEncoder - rEncoderPrev)/TICKS_TO_ANG;
+  lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG/dt;
+  rSpeed = a*rSpeed + (1-a)*(rEncoder - rEncoderPrev)/TICKS_TO_ANG/dt;
   lEncoderPrev = lEncoder;
   rEncoderPrev = rEncoder;
+
+  Serial.print("debug: ");
+  Serial.println(lSpeed/cmdVel);
+
 }
   
 
@@ -239,8 +243,8 @@ void MotorControl() {
     return;
   }
 
-  float lPwm = cmdVel * 10;
-  float rPwm = cmdVel * 10;
+  float lPwm = cmdVel * 20;
+  float rPwm = cmdVel * 20;
   
   PWMControl(lPwm, rPwm);
 }
@@ -248,13 +252,13 @@ void MotorControl() {
 
 void PWMControl(float lOutput, float rOutput)
 {
-  digitalWrite(TN1, lOutput > 0);
-  digitalWrite(TN2, lOutput <= 0);
-  digitalWrite(TN3, rOutput > 0);
-  digitalWrite(TN4, rOutput <= 0);
+  digitalWrite(TN1, lOutput <= 0);
+  digitalWrite(TN2, lOutput > 0);
+  digitalWrite(TN3, rOutput <= 0);
+  digitalWrite(TN4, rOutput > 0);
 
-  OCR3A = min(1023, (abs(lOutput * 4) + LMotor_offset * 4)); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
-  OCR0B = min(255, (abs(rOutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
+  OCR3A = min(1023, (abs(lOutput) + LMotor_offset) * 4); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
+  OCR0B = min(255, abs(rOutput) + RMotor_offset); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
 }
 
 
