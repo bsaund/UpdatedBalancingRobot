@@ -8,8 +8,6 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   std_msgs
   tf
-  interactive_markers
-  visualization_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -130,16 +128,7 @@ include_directories(
 # add_dependencies(balancing_robot ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
-add_executable(arduino_communication src/arduinoCommunication.cpp)
-target_link_libraries(arduino_communication
-  ${catkin_LIBRARIES}
-)
 
-
-add_executable(arduino_data_parsing src/arduinoParsing.cpp)
-target_link_libraries(arduino_data_parsing
-  ${catkin_LIBRARIES}
-)
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above
