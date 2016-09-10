@@ -11,4 +11,5 @@
   <node pkg="rviz" type="rviz" name="rviz_robot" required="true"
 	args="-d $(find balancing_robot)/rviz_config.rviz"/>
   <node pkg="balancing_robot" type="arduino_data_parsing" name="arduino_data_parsing"/>
+  <node pkg="balancing_robot" type="visualize.py" name="visualize"/>
 </launch>

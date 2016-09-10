@@ -34,8 +34,8 @@ def getWheelMarker():
     marker.pose.orientation.w=.7071
     marker.pose.orientation.y=.7071
 
-    marker.color.r = 1.0
-    marker.color.g = 1.0
+    marker.color.r = .3
+    marker.color.g = .3
     marker.color.b = 1.0
     return marker
 

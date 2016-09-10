@@ -50,18 +50,18 @@ Visualization Manager:
       Reference Frame: <Fixed Frame>
       Value: true
     - Class: rviz/Axes
-      Enabled: true
+      Enabled: false
       Length: 1
       Name: Axes
       Radius: 0.100000001
       Reference Frame: robot_frame
-      Value: true
+      Value: false
     - Class: rviz/Marker
       Enabled: true
       Marker Topic: visualization_marker
       Name: Marker
       Namespaces:
-        {}
+        balancing_robot: true
       Queue Size: 100
       Value: true
   Enabled: true
@@ -88,7 +88,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 10
+      Distance: 1.89790618
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.0599999987
         Stereo Focal Distance: 1
@@ -121,5 +121,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 58
+  X: 57
   Y: 24

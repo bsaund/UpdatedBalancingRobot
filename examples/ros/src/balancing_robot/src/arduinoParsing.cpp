@@ -10,14 +10,14 @@ ros::Subscriber ucListener;
 void ucListenerCallback(const std_msgs::String::ConstPtr& msg) {
 
   double theta = atof(msg->data.c_str())*M_PI/180;
+  double wheelRadius = 0.033;
   
   static tf::TransformBroadcaster transformBroadcaster;
-  tf::Vector3 v(0,0,0);
+  tf::Vector3 v(0,-theta*wheelRadius,wheelRadius);
   tf::Quaternion q;
   q.setEuler(0,theta,0);
-  tf::Transform trans(q,
-		      tf::Vector3(0,0,0));
-		      // v);
+  tf::Transform trans(q,v);
+
   tf::StampedTransform transStmp(trans, ros::Time::now(),
 				"base_frame", "robot_frame");
   transformBroadcaster.sendTransform(transStmp);
