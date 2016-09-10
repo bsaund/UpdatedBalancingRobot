@@ -10,10 +10,8 @@
 #include <I2Cdev.h>
 #include <MPU6050.h>
 
+
 MPU6050 imu;
-MPU6050 initialize;
-int16_t ax, ay, az;
-int16_t gx, gy, gz;
 
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
@@ -21,20 +19,26 @@ int16_t gx, gy, gz;
 #define RMotor_offset 0  // The offset of the Motor
 #define LMotor_offset 0  // The offset of the Motor
 #define pi 3.14159
+#define TICKS_TO_ANG 1151
 
-float Angle_Delta, Angle_Recursive, Angle_Confidence;
+double wheelRadius = 0.033;
+double wheelGap = .17;
+
 
 float kp, ki, kd;
 double thetaBody;
-float Turn_Speed = 0, Run_Speed = 0;
-float LOutput, ROutput, Input, Output;
-//uint16_t MODE = 0;
+double lSpeed, rSpeed; /* Angular Velocities of l and r wheels */
+float cmdAngular=0, cmdVel=0;
+
 
 unsigned long preTime, lastTime;
 float errSum, dErr, error, lastErr;
-int timeChange;
 
-long Sum_Right, Sum_Right_Temp = 150, Sum_Left, Sum_Left_Temp = 150, Distance, Distance_Right, Distance_Left, Speed;
+long rEncoder = 0, rEncoderPrev = 0, lEncoder = 0, lEncoderPrev = 0;
+long Distance, Distance_Right, Distance_Left, Speed;
+
+int blinkFreq = 150;
+int numBlinks = 2;
 
 int TN1 = 23;
 int TN2 = 22;
@@ -43,42 +47,19 @@ int TN3 = 24;
 int TN4 = 25;
 int ENB = 4;
 
-enum Modes {
-  Default,
-  PidAdjust,
-  Drive,
+enum Mode {
+  Balancing,
   DirectControl
 };
+Mode mode;
 
-Modes MODE;
-
-
-
-struct Axis  // Datas from remote control
-{
-  uint16_t axis_1;
-  uint16_t axis_2;
-  uint16_t axis_3;
-  uint16_t axis_4;
-  uint16_t axis_5;
-  uint16_t axis_6;
-  uint16_t axis_7;
-  uint16_t axis_8;
+enum Orientation {
+  Upright,
+  Fallen  
 };
-Axis axis_x;
+Orientation orientation;
+  
 
-struct Gesture  // Datas send back to remote control
-{
-  float angle;
-  float omega;
-  int speed;
-  uint16_t P;
-  uint16_t I;
-  uint16_t D;
-  long distLeft;
-  long distRight;
-};
-Gesture data;
 
 void setup()
 {
@@ -96,7 +77,7 @@ void setup()
 
   lastTime = millis();
 
-  filterIMU(10000);
+  filterIMU(10);
   pinMode(TN1, OUTPUT);
   pinMode(TN2, OUTPUT);
   pinMode(TN3, OUTPUT);
@@ -124,112 +105,58 @@ void setup()
   kp = 22.000;
   ki = 0;
   kd = 1.60;
+
+  mode = Mode::DirectControl;
 }
 
 void loop()
 {
-  /* Recive(); */
-  int dt = millis() - lastTime;
-  if (dt < 10)
+
+  int dt_ms = millis() - lastTime;
+  if (dt_ms < 10)
     return;
+
+  
+  
+  Recieve();
 
   lastTime = millis();  
 
-  Blink.blinkFor(150, 2, 3);
-  if (directControl()){
-    return;
-  }
-  updatePidValues();
-  updateSpeeds();
+  Blink.blinkFor(blinkFreq, numBlinks, 3);
+
+  double dt = (double)dt_ms/1000;
   filterIMU(dt);
+  filterSpeed(dt);
   writeSerialData();
-  // If angle > 45 or < -45 then stop the robot
-  if (abs(thetaBody) < 45){
-    myPID();
-    PWMControl();
-  } else {
-    digitalWrite(TN1, HIGH);
-    digitalWrite(TN2, HIGH);
-    digitalWrite(TN3, HIGH);
-    digitalWrite(TN4, HIGH);
-  }
+
+  balancingPID();
+  MotorControl();
 }
 
-/* void Recive() */
-/* { */
-/*   if (!Mirf.isSending() && Mirf.dataReady()) */
-/*   { */
-/*     // Read datas from the romote controller */
-/*     Mirf.getData((byte *)&axis_x); */
-/*     /\*Serial.print("axis_1="); */
-/*     Serial.print(axis_x.axis_1); */
-/*     Serial.print("  axis_2="); */
-/*     Serial.print(axis_x.axis_2); */
-/*     Serial.print("  axis_3="); */
-/*     Serial.print(axis_x.axis_3); */
-/*     Serial.print("  axis_4="); */
-/*     Serial.print(axis_x.axis_4); */
-/*     Serial.print("  axis_5="); */
-/*     Serial.print(axis_x.axis_5); */
-/*     Serial.print("  axis_6="); */
-/*     Serial.print(axis_x.axis_6); */
-/*     Serial.print("  axis_7="); */
-/*     Serial.print(axis_x.axis_7); */
-/*     Serial.print("  axis_8="); */
-/*     Serial.println(axis_x.axis_8);*\/ */
-
-/*     data.omega = omega; */
-/*     data.angle = thetaBody; */
-/*     data.speed = Sum_Right; */
-/*     data.P = kp; */
-/*     data.I = ki; */
-/*     data.D = kd * 100;//Convention to pass d*100 over wireless */
-/*     data.distLeft = Sum_Left; */
-/*     data.distRight = Sum_Right; */
-
-/*     Mirf.setTADDR((byte *)"clie1"); */
-/*     Mirf.send((byte *)&data);  // Send datas back to the controller */
-
-/*     //MODE = axis_x.axis_8; */
-/*     MODE = static_cast<Modes>(axis_x.axis_8); */
-/*   } */
-/* } */
-
-void updatePidValues(){
-  if (MODE != PidAdjust){
+void Recieve()
+{
+  if(!Serial.available())
     return;
-  }
-
-  kp *= 1 + mapJoystick(axis_x.axis_2, -.003, .003, 5);
-  kd *= 1 + mapJoystick(axis_x.axis_3, -.003, .003, 5);
+  char serialData[20];
+  double value;
+  Serial.readBytesUntil(';', serialData, 19);
+  value = atof(&serialData[1]);
+  numBlinks = (int)value;
+  Serial.print("debug: ");
+  Serial.println(serialData);
+  cmdVel = value;
 }
 
-void updateSpeeds(){
-  if (MODE != Drive){
-    return;
-  }
-  
-  Run_Speed = mapJoystick(axis_x.axis_4, -100, 100);
-  Turn_Speed = mapJoystick(axis_x.axis_1, -120, 120);
-}
-
-boolean directControl(){
-  if (MODE != DirectControl){
-    return false;
-  }
-
-  LOutput = mapJoystick(axis_x.axis_2, -255, 255);
-  ROutput = mapJoystick(axis_x.axis_4, -255, 255);
-  PWMControl();
-  return true;
-}
-
-void filterIMU(int loopTimeMS)
+/* Filter the IMU to estimate theta using a */
+/* Complimentary Filter */
+void filterIMU(double dt)
 {
   double tau = 0.5;
-  
-  double dt = (double)loopTimeMS / 1000;
+
   // Raw datas
+  int16_t ax, ay, az;
+  int16_t gx, gy, gz;
+
   imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
   double measuredAngle = (atan2(ay, az) * 180 / pi + Angle_offset);
@@ -238,118 +165,122 @@ void filterIMU(int loopTimeMS)
   double a = tau/(tau+dt);
 
   thetaBody = a*(thetaBody + thetaDot*dt) + (1-a)*measuredAngle;
-    
-  /* Angle_Delta = (Angle_Raw - Angle_Filtered) * 0.64; */
-  /* Angle_Recursive = Angle_Delta * dt + Angle_Recursive; */
-  /* Angle_Confidence = Angle_Recursive + (Angle_Raw - Angle_Filtered) * 1.6 + omega; */
-  /* Angle_Filtered = Angle_Confidence * dt + Angle_Filtered; */
+
+  orientation = Orientation::Fallen;
+  if (abs(thetaBody) < 45){
+    orientation = Orientation::Upright;
+  }
 }
+
+/* Low pass filter the speed as read from the encoders */
+void filterSpeed(double dt){
+  double tau = 0.02;
+  double a = tau/(tau+dt);
+
+  lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG;
+  rSpeed = a*rSpeed + (1-a)*(rEncoder - rEncoderPrev)/TICKS_TO_ANG;
+  lEncoderPrev = lEncoder;
+  rEncoderPrev = rEncoder;
+}
+  
 
 void writeSerialData()
 {
-  Serial.println(thetaBody);
+  Serial.print(thetaBody);
+  Serial.print(" ");
+  Serial.print((double)lEncoder/TICKS_TO_ANG);
+  Serial.print(" ");
+  Serial.print((double)rEncoder/TICKS_TO_ANG);
+  Serial.print(" ");
+  Serial.print(lSpeed);
+  Serial.print(" ");
+  Serial.print(rSpeed);
+  Serial.println(" ");
 }
 
-void myPID()
+void balancingPID()
 {
-
+/* TODO - I COMMENTED OUT LINES THAT BREAK THIS */
+/*   REVISIT */
+  if(orientation == Orientation::Fallen ||
+     mode != Mode::Balancing)
+    return;
+  
   // Calculating the output values using the gesture values and the PID values.
-  error = thetaBody;
-  errSum += error;
-  dErr = error - lastErr;
-  /* Output = kp * error + ki * errSum + kd * omega; */
-  Output = kp * error + ki * errSum;
-  lastErr = error;
-  noInterrupts();
-  if (abs(Sum_Left - Sum_Left_Temp) > 300)
-  {
-    Sum_Left = Sum_Left_Temp;
+  /* error = thetaBody; */
+  /* errSum += error; */
+  /* dErr = error - lastErr; */
+  /* /\* Output = kp * error + ki * errSum + kd * omega; *\/ */
+  /* Output = kp * error + ki * errSum; */
+  /* lastErr = error; */
+  /* noInterrupts(); */
+  
+  /* Speed = (rEncoder + lEncoder) / 2; */
+  /* Distance += Speed + Run_Speed; */
+  /* Distance = constrain(Distance, -8000, 8000); */
+  /* Output += Speed * 2.4 + Distance * 0.025; */
+  /* Sum_Right_Temp = rEncoder; */
+  /* Sum_Left_Temp = rEncoder; */
+  /* /\* rEncoder = 0; *\/ */
+  /* /\* lEncoder = 0; *\/ */
+
+  /* ROutput = Output + Turn_Speed; */
+  /* LOutput = Output - Turn_Speed; */
+  /* interrupts(); */
+}
+
+void MotorControl() {
+  if(orientation == Orientation::Fallen &&
+     mode == Mode::Balancing){
+    digitalWrite(TN1, HIGH);
+    digitalWrite(TN2, HIGH);
+    digitalWrite(TN3, HIGH);
+    digitalWrite(TN4, HIGH);
+    return;
   }
-  if (abs(Sum_Right - Sum_Right_Temp) > 300)
-  {
-    Sum_Right = Sum_Right_Temp;
-  }
-  Speed = (Sum_Right + Sum_Left) / 2;
-  Distance += Speed + Run_Speed;
-  Distance = constrain(Distance, -8000, 8000);
-  Output += Speed * 2.4 + Distance * 0.025;
-  Sum_Right_Temp = Sum_Right;
-  Sum_Left_Temp = Sum_Right;
-  Sum_Right = 0;
-  Sum_Left = 0;
 
-  ROutput = Output + Turn_Speed;
-  LOutput = Output - Turn_Speed;
-  interrupts();
+  float lPwm = cmdVel * 10;
+  float rPwm = cmdVel * 10;
+  
+  PWMControl(lPwm, rPwm);
 }
+  
 
-void PWMControl()
+void PWMControl(float lOutput, float rOutput)
 {
-  digitalWrite(TN1, LOutput > 0);
-  digitalWrite(TN2, LOutput <= 0);
-  digitalWrite(TN3, ROutput > 0);
-  digitalWrite(TN4, ROutput <= 0);
+  digitalWrite(TN1, lOutput > 0);
+  digitalWrite(TN2, lOutput <= 0);
+  digitalWrite(TN3, rOutput > 0);
+  digitalWrite(TN4, rOutput <= 0);
 
-  OCR3A = min(1023, (abs(LOutput * 4) + LMotor_offset * 4)); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
-  OCR0B = min(255, (abs(ROutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
-}
-
-float mapJoystick(long x, float out_min, float out_max){
-  return mapJoystick(x, out_min, out_max, 3);
+  OCR3A = min(1023, (abs(lOutput * 4) + LMotor_offset * 4)); // Timer/Counter3 is a general purpose 16-bit Timer/Counter module
+  OCR0B = min(255, (abs(rOutput) + RMotor_offset)); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
 }
 
-float mapJoystick(long x, float out_min, float out_max, int decimalsOfAccuracy){
-  long multiplier = pow(10, decimalsOfAccuracy);
-  long interm = mapWithDeadBand(x, 0, 1023, out_min * multiplier, out_max * multiplier, 480, 520);
-  return (float)interm / multiplier;
-}
 
-long mapWithDeadBand(long x, long in_min, long in_max, long out_min, long out_max, long deadband_min, long deadband_max){
-  if (x > deadband_min && x < deadband_max){
-    return 0;
-  }
-  return map(x, in_min, in_max, out_min, out_max);
-}
 
-/*void State_A()
-{
-FlagA = digitalRead(18);
-}
-
-void State_B()
-{
-FlagB = digitalRead(19);
-if (FlagA == FlagB)
-{
-Counter --;
-}
-else
-{
-Counter ++;
-}
-}*/
 
 void State_A()
 {
-  if (digitalRead(18))
+  if (!digitalRead(18))
   {
-    Sum_Right++;
+    rEncoder++;
   }
   else
   {
-    Sum_Right--;
+    rEncoder--;
   }
 }
 
 void State_B()
 {
-  if (!digitalRead(2))
+  if (digitalRead(2))
   {
-    Sum_Left++;
+    lEncoder++;
   }
   else
   {
-    Sum_Left--;
+    lEncoder--;
   }
 }
 
