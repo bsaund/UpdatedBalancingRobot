@@ -25,7 +25,7 @@ marker.ns = "robot"
 # marker.type = marker.SPHERE
 
 # ==============================
-# THIS DOES NOT IN XENIAL ON RASPBERRY PI
+# THIS DOES NOT IN KINETIC ON RASPBERRY PI XENIAL
 # ==============================
 
 marker.type = marker.MESH_RESOURCE
