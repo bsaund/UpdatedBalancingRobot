@@ -241,22 +241,22 @@ void MotorControl(double dt) {
     return;
   }
 
-  MotorControlPid(cmdVel, 0, dt);
+  MotorControlPid(cmdVel, cmdVel, dt);
 
 }
 
 void MotorControlPid(float lCmd, float rCmd, double dt){
 
   
-  /* float lPwm = lCmd * 20 + (lCmd - lSpeed) * 5; */
-  /* float rPwm = rCmd * 20 + (rCmd - rSpeed) * 5; */
-  float lPwm = lCmd * 20;
-  float rPwm = rCmd * 20;
+  float lPwm = lCmd * 20 + (lCmd - lSpeed) * 30;
+  float rPwm = rCmd * 20 + (rCmd - rSpeed) * 30;
+  /* float lPwm = lCmd * 20; */
+  /* float rPwm = rCmd * 20; */
 
-  /* Serial.print("debug: r_err: "); */
-  /* Serial.print(rCmd - rSpeed); */
-  /* Serial.print("\t l_err: "); */
-  /* Serial.println(lCmd - lSpeed); */
+  Serial.print("debug: r_err: ");
+  Serial.print(rCmd - rSpeed);
+  Serial.print("\t l_err: ");
+  Serial.println(lCmd - lSpeed);
   
 
   
