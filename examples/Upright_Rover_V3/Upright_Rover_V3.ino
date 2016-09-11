@@ -39,7 +39,7 @@ long rEncoder = 0, rEncoderPrev = 0, lEncoder = 0, lEncoderPrev = 0;
 long Distance, Distance_Right, Distance_Left, Speed;
 
 int blinkFreq = 150;
-int numBlinks = 3;
+int numBlinks = 2;
 
 int TN1 = 23;
 int TN2 = 22;
@@ -203,7 +203,8 @@ void filterIMU(double dt)
 
   imu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  double measuredAngle = (atan2(ay, az) * 180 / pi + Angle_offset);
+  /* double measuredAngle = (atan2(ay, az) * 180 / pi + Angle_offset); */
+  double measuredAngle = (atan2(ay, -ax) * 180 / pi + Angle_offset);
   double thetaDot = (double)gx / Gyro_gain + Gyro_offset;
 
   double a = tau/(tau+dt);
