@@ -29,6 +29,7 @@ float kp, ki, kd;
 double thetaBody;
 double lSpeed, rSpeed; /* Angular Velocities of l and r wheels */
 float cmdAngular=0, cmdVel=0;
+double goalPosition = 0;
 
 
 unsigned long preTime, lastTime;
@@ -38,7 +39,7 @@ long rEncoder = 0, rEncoderPrev = 0, lEncoder = 0, lEncoderPrev = 0;
 long Distance, Distance_Right, Distance_Left, Speed;
 
 int blinkFreq = 150;
-int numBlinks = 2;
+int numBlinks = 3;
 
 int TN1 = 23;
 int TN2 = 22;
@@ -49,7 +50,8 @@ int ENB = 4;
 
 enum Mode {
   Balancing,
-  DirectControl
+  DirectControl,
+  StationKeeping
 };
 Mode mode;
 
@@ -106,7 +108,9 @@ void setup()
   ki = 0;
   kd = 1.60;
 
-  mode = Mode::DirectControl;
+  mode = Mode::StationKeeping;
+  /* mode = Mode::Balancing; */
+
 }
 
 void loop()
@@ -140,11 +144,51 @@ void Recieve()
   char serialData[20];
   double value;
   Serial.readBytesUntil(';', serialData, 19);
-  value = atof(&serialData[1]);
-  numBlinks = (int)value;
+  value = atof(&serialData[2]);
+  bool isValid = true;
+  char cmdType = serialData[1];
+
   /* Serial.print("debug: "); */
   /* Serial.println(serialData); */
-  cmdVel = value;
+
+  switch(serialData[0]){ /* Command Category */
+  case 'v': /* VelocityCommands */
+    switch(cmdType){ /* Command Type */
+    case 'x': /* move in the x direction */
+      cmdVel = value;       break;
+    case 'w': /* v turn about veritcal axis */
+      cmdAngular = value;   break;
+    default:
+      isValid = false;
+    }
+    break;
+
+  case 'm':  /* Set Mode  */
+    switch(cmdType){
+    case 'd':
+      mode = Mode::DirectControl;  break;
+    case 'b':
+      mode = Mode::Balancing;      break;
+    case 's':
+      mode = Mode::StationKeeping;      break;
+    default:
+      isValid = false;
+    }
+    break;
+    
+  default:
+    isValid = false;
+  }
+
+  if(!isValid){
+    Serial.print("debug: incorrect  end: ");
+    Serial.println(serialData);
+  }
+    
+
+
+
+
 }
 
 /* Filter the IMU to estimate theta using a */
@@ -166,9 +210,10 @@ void filterIMU(double dt)
 
   thetaBody = a*(thetaBody + thetaDot*dt) + (1-a)*measuredAngle;
 
-  orientation = Orientation::Fallen;
-  if (abs(thetaBody) < 45){
-    orientation = Orientation::Upright;
+  orientation = Orientation::Upright;
+  if (abs(thetaBody) > 45){
+    orientation = Orientation::Fallen;
+    goalPosition = getDisplacement();
   }
 }
 
@@ -204,9 +249,20 @@ void balancingPID()
 {
 /* TODO - I COMMENTED OUT LINES THAT BREAK THIS */
 /*   REVISIT */
-  if(orientation == Orientation::Fallen ||
-     mode != Mode::Balancing)
+  if(orientation == Orientation::Fallen)
     return;
+  if(mode != Mode::Balancing &&
+     mode != Mode::StationKeeping)
+    return;
+
+
+  double thetaTarget = 0;
+
+  if(mode == Mode::StationKeeping){
+    thetaTarget = (getDisplacement()-goalPosition)*10;
+  }
+  
+  cmdVel = -(thetaBody-thetaTarget)/20;
   
   // Calculating the output values using the gesture values and the PID values.
   /* error = thetaBody; */
@@ -233,7 +289,7 @@ void balancingPID()
 
 void MotorControl(double dt) {
   if(orientation == Orientation::Fallen &&
-     mode == Mode::Balancing){
+     mode != Mode::DirectControl){
     digitalWrite(TN1, HIGH);
     digitalWrite(TN2, HIGH);
     digitalWrite(TN3, HIGH);
@@ -241,7 +297,9 @@ void MotorControl(double dt) {
     return;
   }
 
-  MotorControlPid(cmdVel, cmdVel, dt);
+  double v = cmdVel/wheelRadius;
+  double w = cmdAngular*wheelGap/wheelRadius;
+  MotorControlPid(v + w, v - w, dt);
 
 }
 
@@ -250,16 +308,12 @@ void MotorControlPid(float lCmd, float rCmd, double dt){
   
   float lPwm = lCmd * 20 + (lCmd - lSpeed) * 30;
   float rPwm = rCmd * 20 + (rCmd - rSpeed) * 30;
-  /* float lPwm = lCmd * 20; */
-  /* float rPwm = rCmd * 20; */
 
-  Serial.print("debug: r_err: ");
-  Serial.print(rCmd - rSpeed);
-  Serial.print("\t l_err: ");
-  Serial.println(lCmd - lSpeed);
-  
-
-  
+  /* Serial.print("debug: r_err: "); */
+  /* Serial.print(rCmd - rSpeed); */
+  /* Serial.print("\t l_err: "); */
+  /* Serial.println(lCmd - lSpeed); */
+    
   PWMControl(lPwm, rPwm);  
 }
   
@@ -274,7 +328,10 @@ void PWMControl(float lOutput, float rOutput)
   OCR0B = min(255, abs(rOutput) + RMotor_offset); // Timer/Counter0 is a general purpose 8-bit Timer/Counter module
 }
 
-
+/* Returns the average of the displacement of the two wheels in meters */
+double getDisplacement(){
+  return (lEncoder + rEncoder)*wheelRadius/TICKS_TO_ANG/2;
+}
 
 
 void State_A()
