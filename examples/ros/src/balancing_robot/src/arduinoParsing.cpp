@@ -1,6 +1,7 @@
 #include "ros/ros.h"
 #include "std_msgs/String.h"
 #include "visualization_msgs/Marker.h"
+#include "geometry_msgs/Twist.h"
 #include <tf/tf.h>
 #include <tf/transform_broadcaster.h>
 #include <math.h>
@@ -8,6 +9,7 @@
 
 ros::Subscriber ucListener;
 ros::Publisher visPub;
+ros::Publisher speedPub;
 long lEnc, rEnc;
 tf::Transform unrotTrans;
 double wheelRadius = 0.033;
@@ -28,7 +30,7 @@ tf::StampedTransform makeRotatedMsg(double theta){
 tf::StampedTransform makeUnrotatedMsg(double dL, double dR){
   tf::Vector3 v(0,(dL+dR)*wheelRadius/2, 0);
   tf::Quaternion q;
-  q.setEuler(0,0,(dL-dR)*wheelRadius/wheelGap);
+  q.setEuler(0,0,(dR-dL)*wheelRadius/wheelGap);
 
   tf::Transform delta(q, v);
   unrotTrans = unrotTrans * delta;
@@ -94,7 +96,9 @@ void ucListenerCallback(const std_msgs::String::ConstPtr& msg) {
   static tf::TransformBroadcaster tfBroad;
   tfBroad.sendTransform(makeRotatedMsg(theta*M_PI/180));
   tfBroad.sendTransform(makeUnrotatedMsg(dL, dR));
-  visPub.publish(makeSpeedMarker(lSpeed, rSpeed));
+  // visPub.publish(makeSpeedMarker(lSpeed, rSpeed));
+  // tf::Twist tw(
+  // speedPub.publish(
   
 							  
 }

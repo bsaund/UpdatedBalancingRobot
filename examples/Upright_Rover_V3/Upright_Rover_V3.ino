@@ -130,7 +130,7 @@ void loop()
   writeSerialData();
 
   balancingPID();
-  MotorControl();
+  MotorControl(dt);
 }
 
 void Recieve()
@@ -174,7 +174,7 @@ void filterIMU(double dt)
 
 /* Low pass filter the speed as read from the encoders */
 void filterSpeed(double dt){
-  double tau = 0.02;
+  double tau = 0.002;
   double a = tau/(tau+dt);
 
   lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG/dt;
@@ -182,8 +182,6 @@ void filterSpeed(double dt){
   lEncoderPrev = lEncoder;
   rEncoderPrev = rEncoder;
 
-  Serial.print("debug: ");
-  Serial.println(lSpeed/cmdVel);
 
 }
   
@@ -233,7 +231,7 @@ void balancingPID()
   /* interrupts(); */
 }
 
-void MotorControl() {
+void MotorControl(double dt) {
   if(orientation == Orientation::Fallen &&
      mode == Mode::Balancing){
     digitalWrite(TN1, HIGH);
@@ -243,13 +241,28 @@ void MotorControl() {
     return;
   }
 
-  float lPwm = cmdVel * 20;
-  float rPwm = cmdVel * 20;
-  
-  PWMControl(lPwm, rPwm);
+  MotorControlPid(cmdVel, 0, dt);
+
 }
+
+void MotorControlPid(float lCmd, float rCmd, double dt){
+
+  
+  /* float lPwm = lCmd * 20 + (lCmd - lSpeed) * 5; */
+  /* float rPwm = rCmd * 20 + (rCmd - rSpeed) * 5; */
+  float lPwm = lCmd * 20;
+  float rPwm = rCmd * 20;
+
+  /* Serial.print("debug: r_err: "); */
+  /* Serial.print(rCmd - rSpeed); */
+  /* Serial.print("\t l_err: "); */
+  /* Serial.println(lCmd - lSpeed); */
   
 
+  
+  PWMControl(lPwm, rPwm);  
+}
+  
 void PWMControl(float lOutput, float rOutput)
 {
   digitalWrite(TN1, lOutput <= 0);
@@ -266,25 +279,19 @@ void PWMControl(float lOutput, float rOutput)
 
 void State_A()
 {
-  if (!digitalRead(18))
-  {
-    rEncoder++;
-  }
-  else
-  {
-    rEncoder--;
+  if (!digitalRead(18))  {
+    lEncoder++;
+  }  else  {
+    lEncoder--;
   }
 }
 
 void State_B()
 {
-  if (digitalRead(2))
-  {
-    lEncoder++;
-  }
-  else
-  {
-    lEncoder--;
+  if (digitalRead(2))  {
+    rEncoder++;
+  }  else  {
+    rEncoder--;
   }
 }
 
