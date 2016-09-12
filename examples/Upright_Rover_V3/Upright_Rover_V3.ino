@@ -276,7 +276,7 @@ void balancingPID(double dt)
   /* cmdVel = -(thetaBody-thetaTarget)/20; */
   
   double cmdAccel = -(thetaBody-thetaTarget)*20 *pi/180;
-  cmdAccel += 6*measAngular * pi/180;
+  cmdAccel += -6*measAngular * pi/180;
 
   /* Serial.print("debug: thetaBody:"); */
   /* Serial.println(thetaBody); */
