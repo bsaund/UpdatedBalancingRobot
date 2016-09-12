@@ -16,18 +16,21 @@ MPU6050 imu;
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
 #define Angle_offset 0  // The offset of the accelerator
-#define RMotor_offset 20  // The offset of the Motor
-#define LMotor_offset 20  // The offset of the Motor
+#define RMotor_offset 30  // The offset of the Motor
+#define LMotor_offset 30  // The offset of the Motor
 #define pi 3.14159
 #define TICKS_TO_ANG 1151
 
 double wheelRadius = 0.033;
 double wheelGap = .17;
 
+double maxVel = 0.5;
+
 
 float kp, ki, kd;
 double thetaBody;
 double lSpeed, rSpeed; /* Angular Velocities of l and r wheels */
+double measVel, measAngular; /* NOTE: ANGULAR IN DEGREES  */
 float cmdAngular=0, cmdVel=0;
 double goalPosition = 0;
 
@@ -108,8 +111,8 @@ void setup()
   ki = 0;
   kd = 1.60;
 
-  mode = Mode::StationKeeping;
-  /* mode = Mode::Balancing; */
+  /* mode = Mode::StationKeeping; */
+  mode = Mode::Balancing;
 
 }
 
@@ -133,8 +136,8 @@ void loop()
   filterSpeed(dt);
   writeSerialData();
 
-  balancingPID();
-  MotorControl(dt);
+  balancingPID(dt);
+  motorControl(dt);
 }
 
 void Recieve()
@@ -205,26 +208,30 @@ void filterIMU(double dt)
 
   /* double measuredAngle = (atan2(ay, az) * 180 / pi + Angle_offset); */
   double measuredAngle = (atan2(ay, -ax) * 180 / pi + Angle_offset);
-  double thetaDot = (double)gx / Gyro_gain + Gyro_offset;
+  measAngular = (double)gz / Gyro_gain + Gyro_offset;
 
   double a = tau/(tau+dt);
 
-  thetaBody = a*(thetaBody + thetaDot*dt) + (1-a)*measuredAngle;
+  thetaBody = a*(thetaBody + measAngular*dt) + (1-a)*measuredAngle;
+  
 
   orientation = Orientation::Upright;
   if (abs(thetaBody) > 45){
     orientation = Orientation::Fallen;
     goalPosition = getDisplacement();
+    if(mode != Mode::DirectControl)
+      cmdVel = 0;
   }
 }
 
 /* Low pass filter the speed as read from the encoders */
 void filterSpeed(double dt){
-  double tau = 0.002;
+  double tau = 0.1;
   double a = tau/(tau+dt);
 
   lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG/dt;
   rSpeed = a*rSpeed + (1-a)*(rEncoder - rEncoderPrev)/TICKS_TO_ANG/dt;
+  measVel = (lSpeed + rSpeed)*wheelRadius/2;
   lEncoderPrev = lEncoder;
   rEncoderPrev = rEncoder;
 
@@ -246,7 +253,7 @@ void writeSerialData()
   Serial.println(" ");
 }
 
-void balancingPID()
+void balancingPID(double dt)
 {
 /* TODO - I COMMENTED OUT LINES THAT BREAK THIS */
 /*   REVISIT */
@@ -262,8 +269,22 @@ void balancingPID()
   if(mode == Mode::StationKeeping){
     thetaTarget = (getDisplacement()-goalPosition)*10;
   }
+
+  /* 0 Velocity Setpoint */
+  /* thetaTarget += measVel*2; */
   
-  cmdVel = -(thetaBody-thetaTarget)/20;
+  /* cmdVel = -(thetaBody-thetaTarget)/20; */
+  
+  double cmdAccel = -(thetaBody-thetaTarget)*20 *pi/180;
+  cmdAccel += 6*measAngular * pi/180;
+
+  /* Serial.print("debug: thetaBody:"); */
+  /* Serial.println(thetaBody); */
+
+
+  cmdVel = cmdVel + cmdAccel * dt;
+
+  cmdVel = max(min(cmdVel, maxVel), -maxVel);
   
   // Calculating the output values using the gesture values and the PID values.
   /* error = thetaBody; */
@@ -288,9 +309,13 @@ void balancingPID()
   /* interrupts(); */
 }
 
-void MotorControl(double dt) {
-  if(orientation == Orientation::Fallen &&
-     mode != Mode::DirectControl){
+void motorControl(double dt) {
+  if(mode == Mode::DirectControl){
+    controlWorldToMotor(cmdVel, cmdAngular);
+    return;
+  }
+
+  if(orientation == Orientation::Fallen) {
     digitalWrite(TN1, HIGH);
     digitalWrite(TN2, HIGH);
     digitalWrite(TN3, HIGH);
@@ -298,17 +323,21 @@ void MotorControl(double dt) {
     return;
   }
 
-  double v = cmdVel/wheelRadius;
-  double w = cmdAngular*wheelGap/wheelRadius;
-  MotorControlPid(v + w, v - w, dt);
-
+  controlWorldToMotor(cmdVel, cmdAngular);
 }
 
-void MotorControlPid(float lCmd, float rCmd, double dt){
+void controlWorldToMotor(double linear, double angular){
+  double v = linear/wheelRadius;
+  double w = angular*wheelGap/wheelRadius;
+  motorControlPid(v + w, v - w); 
+}
+
+
+void motorControlPid(float lCmdSpeed, float rCmdSpeed){
 
   
-  float lPwm = lCmd * 20 + (lCmd - lSpeed) * 30;
-  float rPwm = rCmd * 20 + (rCmd - rSpeed) * 30;
+  float lPwm = lCmdSpeed * 20 + (lCmdSpeed - lSpeed) * 90;
+  float rPwm = rCmdSpeed * 20 + (rCmdSpeed - rSpeed) * 90;
 
   /* Serial.print("debug: r_err: "); */
   /* Serial.print(rCmd - rSpeed); */
