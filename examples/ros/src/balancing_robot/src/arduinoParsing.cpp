@@ -15,7 +15,9 @@ tf::Transform unrotTrans;
 double wheelRadius = 0.033;
 double wheelGap = .17;
 double prevLEnc=0, prevREnc=0;
+tf::TransformBroadcaster *tfBroad;
 
+int count = 0;
 
 tf::StampedTransform makeRotatedMsg(double theta){
   tf::Vector3 v(0,-theta*wheelRadius,wheelRadius);
@@ -41,6 +43,7 @@ tf::StampedTransform makeUnrotatedMsg(double dL, double dR){
 
 
 visualization_msgs::Marker makeSpeedMarker(double vl, double vr){
+ 
   double speed = (vl + vr)/2;
   std::ostringstream strs;
   strs << "Speed: " << speed;
@@ -70,7 +73,11 @@ visualization_msgs::Marker makeSpeedMarker(double vl, double vr){
 
 
 void ucListenerCallback(const std_msgs::String::ConstPtr& msg) {
-
+  if(count < 100){ // Ignore the first several messages, as they may contain bad data
+    count++;
+    return;
+  }
+  
   std::stringstream stream(msg->data.c_str());
   double theta, lEncNew, rEncNew, lSpeed, rSpeed;
   std::string debugPrefix("debug");
@@ -93,9 +100,9 @@ void ucListenerCallback(const std_msgs::String::ConstPtr& msg) {
   prevLEnc = lEncNew;
   prevREnc = rEncNew;
   
-  static tf::TransformBroadcaster tfBroad;
-  tfBroad.sendTransform(makeRotatedMsg(theta*M_PI/180));
-  tfBroad.sendTransform(makeUnrotatedMsg(dL, dR));
+
+  tfBroad->sendTransform(makeRotatedMsg(theta*M_PI/180));
+  tfBroad->sendTransform(makeUnrotatedMsg(dL, dR));
   // visPub.publish(makeSpeedMarker(lSpeed, rSpeed));
   // tf::Twist tw(
   // speedPub.publish(
@@ -109,6 +116,7 @@ int main(int argc, char **argv){
 
   ros::init(argc, argv, "arduinoDataParsing");
   ros::NodeHandle rosNode;
+  tfBroad = new tf::TransformBroadcaster;
   ROS_INFO("arduinoDataParsing starting");
 
   unrotTrans.setIdentity();
