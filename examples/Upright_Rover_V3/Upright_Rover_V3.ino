@@ -16,8 +16,8 @@ MPU6050 imu;
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
 #define Angle_offset 1.3  // The offset of the accelerator
-#define RMotor_offset 30  // The offset of the Motor
-#define LMotor_offset 30  // The offset of the Motor
+#define RMotor_offset 0  // The offset of the Motor
+#define LMotor_offset 0  // The offset of the Motor
 #define pi 3.14159
 #define TICKS_TO_ANG 1151
 
@@ -38,11 +38,10 @@ float cmdAngular=0, cmdVel=0;
 double goalPosition = 0;
 
 
-unsigned long preTime, lastTime;
-/* float errSum, dErr, error, lastErr; */
+unsigned long lastTime;
 
 long rEncoder = 0, rEncoderPrev = 0, lEncoder = 0, lEncoderPrev = 0;
-/* long Distance, Distance_Right, Distance_Left, Speed; */
+
 
 int blinkFreq = 150;
 int numBlinks = 2;
@@ -288,9 +287,9 @@ void balancingPID(double dt)
   
   double cmdAccel = 0;
   cmdAccel += 1.0*(getDisplacement() - goalPosition);
-  cmdAccel += 15*measVel;
-  cmdAccel += -56*(thetaBody-thetaTarget) *pi/180;
-  cmdAccel += -18*measAngular * pi/180;
+  cmdAccel += 18*measVel;
+  cmdAccel += -65*(thetaBody-thetaTarget) *pi/180;
+  cmdAccel += -21*measAngular * pi/180;
 
 
 
@@ -353,8 +352,10 @@ void controlWorldToMotor(double linear, double angular){
 void motorControlPid(float lCmdSpeed, float rCmdSpeed){
 
   
-  float lPwm = lCmdSpeed * 20 + (lCmdSpeed - lSpeed) * 60;
-  float rPwm = rCmdSpeed * 20 + (rCmdSpeed - rSpeed) * 60;
+  /* float lPwm = lCmdSpeed * 20 + (lCmdSpeed - lSpeed) * 60; */
+  /* float rPwm = rCmdSpeed * 20 + (rCmdSpeed - rSpeed) * 60; */
+  float lPwm = lCmdSpeed * 20;
+  float rPwm = rCmdSpeed * 20;
 
   /* Serial.print("debug: r_err: "); */
   /* Serial.print(rCmd - rSpeed); */
