@@ -16,8 +16,8 @@ MPU6050 imu;
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
 #define Angle_offset 1.3  // The offset of the accelerator
-#define RMotor_offset 0  // The offset of the Motor
-#define LMotor_offset 0  // The offset of the Motor
+#define RMotor_offset 40  // The offset of the Motor
+#define LMotor_offset 40  // The offset of the Motor
 #define pi 3.14159
 #define TICKS_TO_ANG 1151
 
