@@ -286,10 +286,13 @@ void balancingPID(double dt)
   
   /* cmdVel = -(thetaBody-thetaTarget)/20; */
   
-  double cmdAccel = -43*(thetaBody-thetaTarget) *pi/180;
-  cmdAccel += -15*measAngular * pi/180;
-  cmdAccel += 11*measVel;
+  double cmdAccel = 0;
   cmdAccel += 1.0*(getDisplacement() - goalPosition);
+  cmdAccel += 15*measVel;
+  cmdAccel += -56*(thetaBody-thetaTarget) *pi/180;
+  cmdAccel += -18*measAngular * pi/180;
+
+
 
   /* Serial.print("debug: thetaBody:"); */
   /* Serial.println(thetaBody); */
