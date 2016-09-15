@@ -15,7 +15,7 @@ MPU6050 imu;
 
 #define Gyro_offset 0  //The offset of the gyro
 #define Gyro_gain 131
-#define Angle_offset 0  // The offset of the accelerator
+#define Angle_offset 1.3  // The offset of the accelerator
 #define RMotor_offset 30  // The offset of the Motor
 #define LMotor_offset 30  // The offset of the Motor
 #define pi 3.14159
@@ -30,16 +30,19 @@ double maxVel = 0.5;
 float kp, ki, kd;
 double thetaBody;
 double lSpeed, rSpeed; /* Angular Velocities of l and r wheels */
-double measVel, measAngular; /* NOTE: ANGULAR IN DEGREES  */
+double measVel; /* m/s */
+double measDist; /* m */
+double measAngular; /* NOTE: ANGULAR IN DEGREES  */
+
 float cmdAngular=0, cmdVel=0;
 double goalPosition = 0;
 
 
 unsigned long preTime, lastTime;
-float errSum, dErr, error, lastErr;
+/* float errSum, dErr, error, lastErr; */
 
 long rEncoder = 0, rEncoderPrev = 0, lEncoder = 0, lEncoderPrev = 0;
-long Distance, Distance_Right, Distance_Left, Speed;
+/* long Distance, Distance_Right, Distance_Left, Speed; */
 
 int blinkFreq = 150;
 int numBlinks = 2;
@@ -54,7 +57,8 @@ int ENB = 4;
 enum Mode {
   Balancing,
   DirectControl,
-  StationKeeping
+  StationKeeping,
+  Off
 };
 Mode mode;
 
@@ -122,12 +126,12 @@ void loop()
   int dt_ms = millis() - lastTime;
   if (dt_ms < 10)
     return;
-
+  lastTime = millis();  
   
   
   Recieve();
 
-  lastTime = millis();  
+
 
   Blink.blinkFor(blinkFreq, numBlinks, 3);
 
@@ -174,6 +178,8 @@ void Recieve()
       mode = Mode::Balancing;      break;
     case 's':
       mode = Mode::StationKeeping;      break;
+    case 'o':
+      mode = Mode::Off;      break;
     default:
       isValid = false;
     }
@@ -226,14 +232,19 @@ void filterIMU(double dt)
 
 /* Low pass filter the speed as read from the encoders */
 void filterSpeed(double dt){
-  double tau = 0.1;
+  double tau = 0.01;
   double a = tau/(tau+dt);
+
 
   lSpeed = a*lSpeed + (1-a)*(lEncoder - lEncoderPrev)/TICKS_TO_ANG/dt;
   rSpeed = a*rSpeed + (1-a)*(rEncoder - rEncoderPrev)/TICKS_TO_ANG/dt;
   measVel = (lSpeed + rSpeed)*wheelRadius/2;
   lEncoderPrev = lEncoder;
   rEncoderPrev = rEncoder;
+
+  /* Serial.print("debug: vel:"); */
+  /* Serial.println(measVel); */
+
 
 
 }
@@ -266,17 +277,19 @@ void balancingPID(double dt)
 
   double thetaTarget = 0;
 
-  if(mode == Mode::StationKeeping){
-    thetaTarget = (getDisplacement()-goalPosition)*10;
-  }
+  /* if(mode == Mode::StationKeeping){ */
+  /*   thetaTarget = (getDisplacement()-goalPosition)*10; */
+  /* } */
 
   /* 0 Velocity Setpoint */
   /* thetaTarget += measVel*2; */
   
   /* cmdVel = -(thetaBody-thetaTarget)/20; */
   
-  double cmdAccel = -(thetaBody-thetaTarget)*20 *pi/180;
-  cmdAccel += -6*measAngular * pi/180;
+  double cmdAccel = -43*(thetaBody-thetaTarget) *pi/180;
+  cmdAccel += -15*measAngular * pi/180;
+  cmdAccel += 11*measVel;
+  cmdAccel += 1.0*(getDisplacement() - goalPosition);
 
   /* Serial.print("debug: thetaBody:"); */
   /* Serial.println(thetaBody); */
@@ -315,7 +328,8 @@ void motorControl(double dt) {
     return;
   }
 
-  if(orientation == Orientation::Fallen) {
+  if(orientation == Orientation::Fallen ||
+     mode == Mode::Off) {
     digitalWrite(TN1, HIGH);
     digitalWrite(TN2, HIGH);
     digitalWrite(TN3, HIGH);
@@ -336,8 +350,8 @@ void controlWorldToMotor(double linear, double angular){
 void motorControlPid(float lCmdSpeed, float rCmdSpeed){
 
   
-  float lPwm = lCmdSpeed * 20 + (lCmdSpeed - lSpeed) * 90;
-  float rPwm = rCmdSpeed * 20 + (rCmdSpeed - rSpeed) * 90;
+  float lPwm = lCmdSpeed * 20 + (lCmdSpeed - lSpeed) * 60;
+  float rPwm = rCmdSpeed * 20 + (rCmdSpeed - rSpeed) * 60;
 
   /* Serial.print("debug: r_err: "); */
   /* Serial.print(rCmd - rSpeed); */
