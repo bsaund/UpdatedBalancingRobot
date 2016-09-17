@@ -75,6 +75,19 @@ def getRMotorMarker():
     marker.pose.position.x=-.04
     return marker
 
+def getMeshMarker():
+    marker = setupMarker()
+    marker.type = marker.MESH_RESOURCE
+    marker.mesh_resource = "package://balancing_robot/CAD/robot.dae"
+    # marker.mesh_resource = "package://pr2_description/meshes/base_v0/base.dae"
+    marker.color.a = 1
+    marker.color.r = .7
+    marker.color.g = .7
+    marker.color.b = .8
+    marker.scale.x = 1
+    marker.scale.y = 1
+    marker.scale.z = 1
+    return marker
 
 
 def main():
@@ -86,11 +99,12 @@ def main():
     markerArray = MarkerArray()
     
 
-    markerArray.markers.append(getBaseMarker())
-    markerArray.markers.append(getLWheelMarker())
-    markerArray.markers.append(getRWheelMarker())
-    markerArray.markers.append(getLMotorMarker())
-    markerArray.markers.append(getRMotorMarker())
+    # markerArray.markers.append(getBaseMarker())
+    # markerArray.markers.append(getLWheelMarker())
+    # markerArray.markers.append(getRWheelMarker())
+    # markerArray.markers.append(getLMotorMarker())
+    # markerArray.markers.append(getRMotorMarker())
+    markerArray.markers.append(getMeshMarker())
     id = 0
     for m in markerArray.markers:
         m.id = id
